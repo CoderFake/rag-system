@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 import hashlib
+import json
 
 class User:
     
@@ -26,6 +27,31 @@ class User:
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'User':
+
+        if not data or not isinstance(data, dict):
+            return cls()
+            
+
+        created_at = data.get('created_at')
+        if created_at and not isinstance(created_at, str):
+            try:
+                if isinstance(created_at, datetime):
+                    created_at = created_at.isoformat()
+                else:
+                    created_at = str(created_at)
+            except:
+                created_at = datetime.now().isoformat()
+                
+        updated_at = data.get('updated_at')
+        if updated_at and not isinstance(updated_at, str):
+            try:
+                if isinstance(updated_at, datetime):
+                    updated_at = updated_at.isoformat()
+                else:
+                    updated_at = str(updated_at)
+            except:
+                updated_at = datetime.now().isoformat()
+        
         return cls(
             id=data.get('id'),
             username=data.get('username', ''),
@@ -33,8 +59,8 @@ class User:
             name=data.get('name', ''),
             email=data.get('email', ''),
             role=data.get('role', 'user'),
-            created_at=data.get('created_at'),
-            updated_at=data.get('updated_at')
+            created_at=created_at,
+            updated_at=updated_at
         )
     
     def to_dict(self, include_password: bool = False) -> Dict[str, Any]:
@@ -65,3 +91,6 @@ class User:
     
     def is_admin(self) -> bool:
         return self.role == 'admin'
+        
+    def __str__(self):
+        return f"User(id={self.id}, username={self.username}, role={self.role})"

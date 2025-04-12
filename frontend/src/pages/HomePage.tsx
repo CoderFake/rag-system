@@ -1,6 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Box, Typography, Paper, Container, Button } from '@mui/material';
+import { 
+  Box, 
+  Typography, 
+  Paper, 
+  Container, 
+  Button,
+  Divider,
+  useTheme,
+  useMediaQuery
+} from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
 import { ChatMessage, ChatInput } from '../components';
 import { chatService } from '../services';
@@ -9,12 +18,15 @@ import { ChatMessage as ChatMessageType, FeedbackData } from '../types';
 
 const HomePage: React.FC = () => {
   const { t } = useTranslation();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { isAuthenticated } = useAuth();
   const { language } = useLanguage();
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Get or create session ID
@@ -117,45 +129,93 @@ const HomePage: React.FC = () => {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h5">{t('app.chat')}</Typography>
+    <Container 
+      maxWidth="lg" 
+      sx={{ 
+        display: 'flex', 
+        flexDirection: 'column',
+        height: `calc(100vh - ${theme.spacing(8)})`,
+        maxHeight: `calc(100vh - ${theme.spacing(8)})`,
+        pt: 2,
+        pb: 2,
+      }}
+    >
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          mb: 2,
+          px: 1
+        }}
+      >
+        <Typography variant="h5" sx={{ fontWeight: 600 }}>
+          {t('app.chat')}
+        </Typography>
         <Button
           variant="outlined"
           startIcon={<AddIcon />}
           onClick={handleNewChat}
+          size={isMobile ? "small" : "medium"}
         >
           {t('chat.new')}
         </Button>
       </Box>
 
-      <Paper
-        elevation={0}
+      <Divider sx={{ mb: 2 }} />
+
+      <Box
+        ref={messagesContainerRef}
         sx={{
           flexGrow: 1,
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
           mb: 2,
-          p: 2,
-          overflow: 'auto',
-          maxHeight: 'calc(100vh - 240px)',
-          bgcolor: 'background.default',
+          px: isMobile ? 0 : 1,
+          borderRadius: 2,
+          '&::-webkit-scrollbar': {
+            width: '8px',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            backgroundColor: theme.palette.mode === 'dark' 
+              ? 'rgba(255, 255, 255, 0.2)' 
+              : 'rgba(0, 0, 0, 0.2)',
+            borderRadius: '4px',
+          },
+          '&::-webkit-scrollbar-track': {
+            backgroundColor: 'transparent',
+          },
         }}
       >
         {messages.length === 0 ? (
-          <Box
+          <Paper
+            elevation={0}
             sx={{
-              height: '100%',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'center',
               alignItems: 'center',
+              textAlign: 'center',
+              p: 4,
+              m: 2,
+              flexGrow: 1,
+              borderRadius: 4,
+              backgroundColor: theme.palette.mode === 'dark' 
+                ? 'rgba(255, 255, 255, 0.05)' 
+                : 'rgba(0, 0, 0, 0.02)',
+              border: `1px dashed ${theme.palette.divider}`,
             }}
           >
-            <Typography variant="body1" color="text.secondary">
+            <Typography variant="h6" color="text.secondary" gutterBottom>
               {t('chat.empty')}
             </Typography>
-          </Box>
+            <Typography variant="body2" color="text.secondary">
+              {t('chat.placeholder')}
+            </Typography>
+          </Paper>
         ) : (
-          <Box>
+          <Box sx={{ p: isMobile ? 1 : 2 }}>
             {messages.map((message) => (
               <ChatMessage
                 key={message.id}
@@ -166,12 +226,14 @@ const HomePage: React.FC = () => {
             <div ref={messagesEndRef} />
           </Box>
         )}
-      </Paper>
+      </Box>
 
-      <ChatInput
-        onSendMessage={handleSendMessage}
-        isLoading={isLoading}
-      />
+      <Box sx={{ position: 'sticky', bottom: 0, width: '100%' }}>
+        <ChatInput
+          onSendMessage={handleSendMessage}
+          isLoading={isLoading}
+        />
+      </Box>
     </Container>
   );
 };

@@ -2,9 +2,18 @@ from flask import Blueprint, request, jsonify, current_app
 import logging
 from db.mysql_manager import MySQLManager
 from models.user import User
+import json
+from datetime import datetime
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/api/auth')
 
@@ -44,7 +53,7 @@ def init_auth_routes(jwt_manager):
             
         except Exception as e:
             logger.error(f"Error during login: {str(e)}")
-            return jsonify({"error": "Đã xảy ra lỗi khi đăng nhập"}), 500
+            return jsonify({"error": f"Đã xảy ra lỗi khi đăng nhập: {str(e)}"}), 500
     
     @auth_bp.route('/register', methods=["POST"])
     def register():
@@ -142,8 +151,18 @@ def init_auth_routes(jwt_manager):
         db = MySQLManager()
         
         try:
-            users = db.execute_query("SELECT id, username, name, email, role, created_at FROM users", fetch=True)
-            return jsonify({"users": users})
+            users_data = db.execute_query(
+                "SELECT id, username, name, email, role, created_at FROM users", 
+                fetch=True
+            )
+            
+
+            for user in users_data:
+                for key, value in user.items():
+                    if isinstance(value, datetime):
+                        user[key] = value.isoformat()
+            
+            return jsonify({"users": users_data})
             
         except Exception as e:
             logger.error(f"Error getting users: {str(e)}")

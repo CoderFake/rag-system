@@ -106,14 +106,19 @@ class MySQLManager:
         return user[0]['id'] if user else 0
     
     def authenticate_user(self, username: str, password: str) -> Optional[Dict[str, Any]]:
-
         hashed_password = hashlib.sha256(password.encode()).hexdigest()
         
         query = "SELECT * FROM users WHERE username = %s AND password = %s"
         result = self.execute_query(query, (username, hashed_password), fetch=True)
         
         if result and len(result) > 0:
-            return result[0]
+            user_data = result[0]
+
+            for key, value in user_data.items():
+                if isinstance(value, datetime):
+                    user_data[key] = value.isoformat()
+                    
+            return user_data
         else:
             return None
     
@@ -122,10 +127,16 @@ class MySQLManager:
         result = self.execute_query(query, (user_id,), fetch=True)
         
         if result and len(result) > 0:
-            return result[0]
+            user_data = result[0]
+            
+            for key, value in user_data.items():
+                if isinstance(value, datetime):
+                    user_data[key] = value.isoformat()
+                    
+            return user_data
         else:
             return None
-    
+        
     def update_user(self, user_id: int, data: Dict[str, Any]) -> bool:
         valid_fields = {'name', 'email', 'role'}
         updates = []

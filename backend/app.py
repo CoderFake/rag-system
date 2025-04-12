@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
 import time
+import json
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
@@ -28,12 +29,18 @@ from config.settings import Config
 from auth.jwt_manager import JWTManager, jwt_required, admin_required
 from db.mysql_manager import MySQLManager
 
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
 
 load_dotenv()
 
 
 app = Flask(__name__)
 CORS(app)
+app.json_encoder = CustomJSONEncoder
 app.config.from_object(Config)
 
 
@@ -43,11 +50,13 @@ from vector_store.embedding_manager import EmbeddingManager
 from vector_store.query_processor import QueryProcessor
 
 
+from auth.jwt_manager import JWTManager
 jwt_manager = JWTManager(
     secret_key=app.config["JWT_SECRET_KEY"],
     expires_delta=app.config["JWT_ACCESS_TOKEN_EXPIRES"],
     refresh_expires_delta=app.config["JWT_REFRESH_TOKEN_EXPIRES"]
 )
+app.jwt_manager = jwt_manager
 
 
 db_manager = MySQLManager()
