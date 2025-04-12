@@ -1,4 +1,4 @@
-from langchain.document_loaders import (
+from langchain_community.document_loaders import (
     PyPDFLoader,
     Docx2txtLoader,
     TextLoader,
@@ -19,7 +19,6 @@ class DocumentService:
         }
         
     def process_file(self, file, metadata=None):
-        """Process uploaded file and add to vector store"""
         filename = secure_filename(file.filename)
         file_ext = os.path.splitext(filename)[1].lower()
         

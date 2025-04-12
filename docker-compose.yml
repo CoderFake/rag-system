@@ -1,42 +1,94 @@
-# docker-compose.yml
-version: '3'
+version: '3.8'
 
 services:
+  # MySQL Database
+  db:
+    image: mysql:8.0
+    container_name: rag-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER:-raguser}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d
+    ports:
+      - "3386:3306"
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "${MYSQL_USER:-raguser}", "-p${MYSQL_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      
+  # Database Initialization
+  db-init:
+    image: mysql:8.0
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./mysql/init:/scripts
+    environment:
+      - MYSQL_HOST=db
+      - MYSQL_USER=${MYSQL_USER:-raguser}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+    entrypoint: ["/bin/bash", "/scripts/init-db.sh"]
+    restart: on-failure
+
   # Backend Flask API
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    ports:
-      - "5000:5000"
-    volumes:
-      - chroma_data:/app/data/chroma
-      - ./backend:/app
-    environment:
-      - FLASK_APP=app.py
-      - FLASK_ENV=development
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - CHROMA_DB_PATH=/app/data/chroma
-      - CHUNK_SIZE=512
-      - CHUNK_OVERLAP=50
+    container_name: rag-backend
     restart: unless-stopped
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    environment:
+      - MYSQL_HOST=${MYSQL_HOST}
+      - MYSQL_PORT=${MYSQL_PORT}
+      - MYSQL_USER=${MYSQL_USER:-raguser}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - FLASK_ENV=${FLASK_ENV}
+      - SECRET_KEY=${SECRET_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - JWT_ACCESS_TOKEN_EXPIRES=${JWT_ACCESS_TOKEN_EXPIRES}
+      - JWT_REFRESH_TOKEN_EXPIRES=${JWT_REFRESH_TOKEN_EXPIRES}
+      - CHROMA_DB_PATH=${CHROMA_DB_PATH}
+      - UPLOAD_FOLDER=${UPLOAD_FOLDER}
+    volumes:
+      - ./backend:/app
+      - chroma_data:/app/chroma_db
+      - uploads_data:/app/uploads
+    ports:
+      - "6868:5000"
 
   # Frontend Streamlit
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    ports:
-      - "8501:8501"
-    volumes:
-      - ./frontend:/app
-    environment:
-      - API_URL=http://backend:5000
-      - STREAMLIT_SERVER_PORT=8501
-      - STREAMLIT_SERVER_HEADLESS=true
+    container_name: rag-frontend
+    restart: unless-stopped
     depends_on:
       - backend
-    restart: unless-stopped
+    environment:
+      - API_URL=${API_URL}
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_HEADLESS=${STREAMLIT_SERVER_HEADLESS}
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "8686:8501"
 
 volumes:
+  mysql_data:
   chroma_data:
+  uploads_data:

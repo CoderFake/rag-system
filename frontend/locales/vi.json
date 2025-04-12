@@ -1,5 +1,5 @@
 {
-    "app_title": "Hệ thống RAG với Gemini AI",
+    "app_title": "Hệ thống RAG",
     "welcome": "Chào mừng bạn đến với hệ thống truy vấn thông minh!",
     "welcome_message": "Xin chào! Tôi là trợ lý AI được hỗ trợ bởi kho kiến thức. Bạn có thể đặt câu hỏi về bất kỳ tài liệu nào đã được tải lên. Tôi sẽ cố gắng trả lời dựa trên thông tin có sẵn. Tôi có thể giúp gì cho bạn hôm nay?",
     "loading_data": "Vui lòng chờ xử lý dữ liệu...",
@@ -13,6 +13,8 @@
     "admin_title": "Trang quản trị",
     "admin_login": "Đăng nhập quản trị",
     "admin_password": "Mật khẩu quản trị",
+    "admin_role": "Bạn có quyền quản trị",
+    "admin_required": "Bạn cần phải đăng nhập với tài khoản có quyền quản trị để truy cập trang này",
     "knowledge_base_management": "Quản lý kho kiến thức",
     "upload_documents": "Tải lên tài liệu",
     "document_list": "Danh sách tài liệu",
@@ -43,7 +45,7 @@
     "logout": "Đăng xuất",
     "chat_title": "Trò chuyện thông minh",
     "about_system": "Giới thiệu hệ thống",
-    "system_description": "Hệ thống sử dụng RAG (Retrieval-Augmented Generation) kết hợp với Gemini AI để cung cấp câu trả lời dựa trên kho kiến thức.",
+    "system_description": "Hệ thống sử dụng RAG (Retrieval-Augmented Generation) để cung cấp câu trả lời dựa trên kho kiến thức.",
     "clear_chat": "Xóa lịch sử trò chuyện",
     "sources_label": "Nguồn tài liệu",
     "error_message": "Đã xảy ra lỗi",
@@ -80,5 +82,15 @@
     "admin_page": "Quản trị",
     "error_status": "Lỗi",
     "processing_status": "Đang xử lý",
-    "complete_status": "Hoàn thành"
+    "complete_status": "Hoàn thành",
+    "feedback_thanks_positive": "Cảm ơn bạn đã đánh giá tích cực!",
+    "feedback_thanks_negative": "Cảm ơn bạn đã đánh giá. Chúng tôi sẽ cải thiện câu trả lời.",
+    "feedback_error": "Lỗi khi gửi đánh giá",
+    "reindex": "Đánh chỉ mục lại",
+    "reindex_button": "Đánh chỉ mục lại tất cả tài liệu",
+    "reindexing": "Đang đánh chỉ mục lại tài liệu...",
+    "reindex_success": "Đánh chỉ mục lại thành công",
+    "reindex_error": "Lỗi khi đánh chỉ mục lại",
+    "log_placeholder_info": "Chức năng hiển thị log chi tiết sẽ được phát triển trong phiên bản sau",
+    "error": "Lỗi"
   }
