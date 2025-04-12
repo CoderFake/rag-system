@@ -173,7 +173,7 @@ docker-compose up -d
 
 ## Sử dụng
 
-1. Truy cập giao diện frontend: http://localhost:8501
+1. Truy cập giao diện frontend: http://localhost:8686
 2. Đăng nhập với tài khoản mặc định:
    - Username: admin
    - Password: admin123
