@@ -70,7 +70,7 @@ services:
     ports:
       - "6868:5000"
 
-  # Frontend Streamlit
+  # Frontend React + Vite App
   frontend:
     build:
       context: ./frontend
@@ -79,14 +79,12 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
-    environment:
-      - API_URL=${API_URL}
-      - STREAMLIT_SERVER_PORT=8501
-      - STREAMLIT_SERVER_HEADLESS=${STREAMLIT_SERVER_HEADLESS}
-    volumes:
-      - ./frontend:/app
     ports:
-      - "8686:8501"
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - VITE_API_URL=http://backend:5000/api
+      - VITE_DEFAULT_LANGUAGE=vi
 
 volumes:
   mysql_data:
