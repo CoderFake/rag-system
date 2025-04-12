@@ -32,7 +32,6 @@ const ChatInput: React.FC<ChatInputProps> = ({
   const [message, setMessage] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto focus input when component mounts
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.focus();
@@ -43,7 +42,6 @@ const ChatInput: React.FC<ChatInputProps> = ({
     if (message.trim() && !isLoading && !disabled) {
       onSendMessage(message);
       setMessage('');
-      // Re-focus the input after sending
       setTimeout(() => {
         if (inputRef.current) {
           inputRef.current.focus();

@@ -12,19 +12,36 @@ import {
   Alert,
   CircularProgress,
   Stack,
+  useTheme,
+  useMediaQuery,
+  InputAdornment,
+  IconButton,
+  Divider,
 } from '@mui/material';
+import {
+  Visibility,
+  VisibilityOff,
+  Person as PersonIcon,
+  Lock as LockIcon,
+  Email as EmailIcon,
+  Badge as BadgeIcon,
+} from '@mui/icons-material';
 import { useAuth } from '../contexts';
 import { RegisterData } from '../types';
 
 const RegisterPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const theme = useTheme();
   const { register, error, clearError, isLoading } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [success, setSuccess] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const isXsScreen = useMediaQuery(theme.breakpoints.down('sm'));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,57 +58,98 @@ const RegisterPage: React.FC = () => {
       await register(userData);
       setSuccess(true);
       
-      // Reset form
+
       setUsername('');
       setPassword('');
       setName('');
       setEmail('');
       
-      // Redirect to login after a delay
+
       setTimeout(() => {
         navigate('/login');
       }, 2000);
     } catch (error) {
-      // Error is handled by the auth context
+
       console.error('Registration failed:', error);
     }
   };
 
+  const handleTogglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
   return (
-    <Container component="main" maxWidth="xs">
+    <Container 
+      component="main" 
+      maxWidth="sm"
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: { xs: 'calc(100vh - 112px)', sm: 'calc(100vh - 128px)' },
+        justifyContent: 'center',
+        px: isXsScreen ? 2 : 3,
+      }}
+    >
       <Box
         sx={{
-          marginTop: 8,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
+          width: '100%',
         }}
       >
         <Paper
           elevation={3}
           sx={{
-            p: 4,
+            p: { xs: 2, sm: 3, md: 4 },
             width: '100%',
-            borderRadius: 2,
+            maxWidth: '550px',
+            borderRadius: { xs: 2, sm: 3 },
           }}
         >
-          <Typography component="h1" variant="h5" align="center" gutterBottom>
+          <Typography 
+            component="h1" 
+            variant={isXsScreen ? "h5" : "h4"} 
+            align="center" 
+            gutterBottom
+            sx={{ 
+              fontWeight: 600,
+              mb: 2
+            }}
+          >
             {t('auth.register.title')}
           </Typography>
 
           {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
+            <Alert 
+              severity="error" 
+              sx={{ 
+                mb: 2,
+                fontSize: isXsScreen ? '0.875rem' : '1rem'
+              }}
+            >
               {error}
             </Alert>
           )}
 
           {success && (
-            <Alert severity="success" sx={{ mb: 2 }}>
+            <Alert 
+              severity="success" 
+              sx={{ 
+                mb: 2,
+                fontSize: isXsScreen ? '0.875rem' : '1rem'
+              }}
+            >
               {t('auth.register.success')}
             </Alert>
           )}
 
-          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
+          <Box 
+            component="form" 
+            onSubmit={handleSubmit} 
+            sx={{ mt: 1 }}
+            noValidate
+          >
             <TextField
               margin="normal"
               required
@@ -104,6 +162,14 @@ const RegisterPage: React.FC = () => {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               disabled={isLoading || success}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <PersonIcon color="action" />
+                  </InputAdornment>
+                ),
+              }}
+              size={isXsScreen ? "small" : "medium"}
             />
             <TextField
               margin="normal"
@@ -111,14 +177,49 @@ const RegisterPage: React.FC = () => {
               fullWidth
               name="password"
               label={t('auth.password')}
-              type="password"
+              type={showPassword ? "text" : "password"}
               id="password"
               autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={isLoading || success}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <LockIcon color="action" />
+                  </InputAdornment>
+                ),
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle password visibility"
+                      onClick={handleTogglePasswordVisibility}
+                      edge="end"
+                      size={isXsScreen ? "small" : "medium"}
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                )
+              }}
+              size={isXsScreen ? "small" : "medium"}
             />
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 2 }}>
+            
+            <Divider sx={{ my: 2 }} />
+            
+            <Typography 
+              variant="body2" 
+              color="text.secondary" 
+              sx={{ mb: 1 }}
+            >
+              {t('app.profile')} {t('app.information')}
+            </Typography>
+            
+            <Stack 
+              direction={{ xs: 'column', sm: 'row' }} 
+              spacing={2} 
+              sx={{ mt: 1 }}
+            >
               <TextField
                 fullWidth
                 id="name"
@@ -128,6 +229,14 @@ const RegisterPage: React.FC = () => {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 disabled={isLoading || success}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <BadgeIcon color="action" />
+                    </InputAdornment>
+                  ),
+                }}
+                size={isXsScreen ? "small" : "medium"}
               />
               <TextField
                 fullWidth
@@ -138,13 +247,25 @@ const RegisterPage: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={isLoading || success}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <EmailIcon color="action" />
+                    </InputAdornment>
+                  ),
+                }}
+                size={isXsScreen ? "small" : "medium"}
               />
             </Stack>
             <Button
               type="submit"
               fullWidth
               variant="contained"
-              sx={{ mt: 3, mb: 2 }}
+              sx={{ 
+                mt: 3, 
+                mb: 2,
+                py: isXsScreen ? 1 : 1.5 
+              }}
               disabled={isLoading || success || !username || !password}
             >
               {isLoading ? (
@@ -154,7 +275,17 @@ const RegisterPage: React.FC = () => {
               )}
             </Button>
             <Box sx={{ textAlign: 'center' }}>
-              <Link component={RouterLink} to="/login" variant="body2">
+              <Link 
+                component={RouterLink} 
+                to="/login" 
+                variant="body2"
+                sx={{
+                  textDecoration: 'none',
+                  '&:hover': {
+                    textDecoration: 'underline'
+                  }
+                }}
+              >
                 {t('auth.register.login')}
               </Link>
             </Box>

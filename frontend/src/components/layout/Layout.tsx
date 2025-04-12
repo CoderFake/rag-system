@@ -18,6 +18,9 @@ import {
   Menu,
   MenuItem,
   Button,
+  useMediaQuery,
+  useTheme,
+  Badge,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -32,10 +35,10 @@ import {
   Login as LoginIcon,
   Logout as LogoutIcon,
 } from '@mui/icons-material';
-import { useAuth, useLanguage, useTheme } from '../../contexts';
+import { useAuth, useLanguage, useTheme as useAppTheme } from '../../contexts';
 import { Language } from '../../types';
 
-const drawerWidth = 240;
+const getDrawerWidth = (isSmallScreen: boolean) => isSmallScreen ? 240 : 260;
 
 interface LayoutProps {
   children: ReactNode;
@@ -44,12 +47,18 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const theme = useTheme();
   const { isAuthenticated, user, logout } = useAuth();
   const { language, changeLanguage } = useLanguage();
-  const { theme, toggleTheme } = useTheme();
+  const { theme: appTheme, toggleTheme } = useAppTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [langAnchorEl, setLangAnchorEl] = useState<null | HTMLElement>(null);
+
+  // Responsive breakpoints
+  const isXsScreen = useMediaQuery(theme.breakpoints.down('sm'));
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down('md'));
+  const drawerWidth = getDrawerWidth(isSmallScreen);
 
   const isAdmin = user?.role === 'admin';
 
@@ -84,40 +93,60 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     navigate('/');
   };
 
+  const handleNavClick = (path: string) => {
+    navigate(path);
+    if (isSmallScreen) {
+      setMobileOpen(false); 
+    }
+  };
+
   const menuItems = [
     {
       text: t('app.chat'),
       icon: <ChatIcon />,
       path: '/',
-      onClick: () => navigate('/'),
+      onClick: () => handleNavClick('/'),
     },
     {
       text: t('app.history'),
       icon: <HistoryIcon />,
       path: '/history',
-      onClick: () => navigate('/history'),
+      onClick: () => handleNavClick('/history'),
       requireAuth: true,
     },
     {
       text: t('app.documents'),
       icon: <DocumentIcon />,
       path: '/admin/documents',
-      onClick: () => navigate('/admin/documents'),
+      onClick: () => handleNavClick('/admin/documents'),
       requireAdmin: true,
     },
     {
       text: t('app.settings'),
       icon: <SettingsIcon />,
       path: '/admin/settings',
-      onClick: () => navigate('/admin/settings'),
+      onClick: () => handleNavClick('/admin/settings'),
       requireAdmin: true,
     },
   ];
 
   const drawer = (
     <div>
-      <Toolbar>
-        <Typography variant="h6" noWrap component="div">
+      <Toolbar sx={{ 
+        px: isSmallScreen ? 1 : 2, 
+        height: { xs: 56, sm: 64 }, 
+        display: 'flex',
+        alignItems: 'center' 
+      }}>
+        <Typography 
+          variant={isSmallScreen ? "subtitle1" : "h6"} 
+          noWrap 
+          component="div"
+          sx={{ 
+            fontWeight: 'bold',
+            fontSize: isSmallScreen ? '1rem' : '1.25rem' 
+          }}
+        >
           {t('app.title')}
         </Typography>
       </Toolbar>
@@ -132,7 +161,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           }
           return (
             <ListItem key={item.text} disablePadding>
-              <ListItemButton onClick={item.onClick}>
+              <ListItemButton 
+                onClick={item.onClick}
+                sx={{ 
+                  py: isSmallScreen ? 1 : 1.5,
+                  px: isSmallScreen ? 2 : 3
+                }}
+              >
                 <ListItemIcon>{item.icon}</ListItemIcon>
                 <ListItemText primary={item.text} />
               </ListItemButton>
@@ -144,104 +179,146 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   );
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ display: 'flex', height: '100vh', width: '100%', overflow: 'hidden' }}>
       <CssBaseline />
       <AppBar
         position="fixed"
         sx={{
           width: { sm: `calc(100% - ${drawerWidth}px)` },
           ml: { sm: `${drawerWidth}px` },
+          boxShadow: 1,
         }}
       >
-        <Toolbar>
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: 'none' } }}
-          >
-            <MenuIcon />
-          </IconButton>
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            {t('app.title')}
-          </Typography>
-
-          <IconButton color="inherit" onClick={toggleTheme}>
-            {theme === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
-          </IconButton>
-
-          <IconButton color="inherit" onClick={handleLangMenu}>
-            <TranslateIcon />
-          </IconButton>
-          <Menu
-            id="language-menu"
-            anchorEl={langAnchorEl}
-            open={Boolean(langAnchorEl)}
-            onClose={handleLangClose}
-          >
-            <MenuItem
-              onClick={() => handleLanguageChange('vi')}
-              selected={language === 'vi'}
-            >
-              Tiếng Việt
-            </MenuItem>
-            <MenuItem
-              onClick={() => handleLanguageChange('en')}
-              selected={language === 'en'}
-            >
-              English
-            </MenuItem>
-          </Menu>
-
-          {isAuthenticated ? (
-            <div>
-              <IconButton
-                size="large"
-                aria-label="account of current user"
-                aria-controls="menu-appbar"
-                aria-haspopup="true"
-                onClick={handleMenu}
-                color="inherit"
-              >
-                <AccountCircle />
-              </IconButton>
-              <Menu
-                id="menu-appbar"
-                anchorEl={anchorEl}
-                anchorOrigin={{
-                  vertical: 'top',
-                  horizontal: 'right',
-                }}
-                keepMounted
-                transformOrigin={{
-                  vertical: 'top',
-                  horizontal: 'right',
-                }}
-                open={Boolean(anchorEl)}
-                onClose={handleClose}
-              >
-                <MenuItem disabled>
-                  {user?.name || user?.username || t('auth.anonymous')}
-                </MenuItem>
-                <Divider />
-                <MenuItem onClick={handleLogout}>
-                  <ListItemIcon>
-                    <LogoutIcon fontSize="small" />
-                  </ListItemIcon>
-                  {t('app.logout')}
-                </MenuItem>
-              </Menu>
-            </div>
-          ) : (
-            <Button
+        <Toolbar sx={{ justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <IconButton
               color="inherit"
-              startIcon={<LoginIcon />}
-              onClick={() => navigate('/login')}
+              aria-label="open drawer"
+              edge="start"
+              onClick={handleDrawerToggle}
+              sx={{ mr: 2, display: { sm: 'none' } }}
             >
-              {t('app.login')}
-            </Button>
-          )}
+              <MenuIcon />
+            </IconButton>
+            <Typography 
+              variant={isXsScreen ? "subtitle1" : "h6"} 
+              noWrap 
+              component="div" 
+              sx={{ 
+                flexGrow: 1, 
+                display: { xs: isXsScreen ? 'none' : 'block', sm: 'block' } 
+              }}
+            >
+              {t('app.title')}
+            </Typography>
+          </Box>
+
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <IconButton 
+              color="inherit" 
+              onClick={toggleTheme}
+              size={isXsScreen ? "small" : "medium"}
+              sx={{ ml: isXsScreen ? 0.5 : 1 }}
+            >
+              {appTheme === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
+            </IconButton>
+
+            <IconButton 
+              color="inherit" 
+              onClick={handleLangMenu}
+              size={isXsScreen ? "small" : "medium"}
+              sx={{ ml: isXsScreen ? 0.5 : 1 }}
+            >
+              <Badge 
+                color="secondary" 
+                variant="dot" 
+                invisible={language === 'en'}
+              >
+                <TranslateIcon />
+              </Badge>
+            </IconButton>
+            <Menu
+              id="language-menu"
+              anchorEl={langAnchorEl}
+              open={Boolean(langAnchorEl)}
+              onClose={handleLangClose}
+              transformOrigin={{ 
+                vertical: 'top',
+                horizontal: 'right',
+              }}
+              anchorOrigin={{ 
+                vertical: 'bottom',
+                horizontal: 'right',
+              }}
+            >
+              <MenuItem
+                onClick={() => handleLanguageChange('vi')}
+                selected={language === 'vi'}
+                dense={isXsScreen}
+              >
+                Tiếng Việt
+              </MenuItem>
+              <MenuItem
+                onClick={() => handleLanguageChange('en')}
+                selected={language === 'en'}
+                dense={isXsScreen}
+              >
+                English
+              </MenuItem>
+            </Menu>
+
+            {isAuthenticated ? (
+              <div>
+                <IconButton
+                  size={isXsScreen ? "small" : "medium"}
+                  aria-label="account of current user"
+                  aria-controls="menu-appbar"
+                  aria-haspopup="true"
+                  onClick={handleMenu}
+                  color="inherit"
+                  sx={{ ml: isXsScreen ? 0.5 : 1 }}
+                >
+                  <AccountCircle />
+                </IconButton>
+                <Menu
+                  id="menu-appbar"
+                  anchorEl={anchorEl}
+                  anchorOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'right',
+                  }}
+                  keepMounted
+                  transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right',
+                  }}
+                  open={Boolean(anchorEl)}
+                  onClose={handleClose}
+                >
+                  <MenuItem disabled dense={isXsScreen}>
+                    {user?.name || user?.username || t('auth.anonymous')}
+                  </MenuItem>
+                  <Divider />
+                  <MenuItem onClick={handleLogout} dense={isXsScreen}>
+                    <ListItemIcon>
+                      <LogoutIcon fontSize={isXsScreen ? "small" : "medium"} />
+                    </ListItemIcon>
+                    {t('app.logout')}
+                  </MenuItem>
+                </Menu>
+              </div>
+            ) : (
+              <Button
+                color="inherit"
+                size={isXsScreen ? "small" : "medium"}
+                startIcon={isXsScreen ? undefined : <LoginIcon />}
+                onClick={() => navigate('/login')}
+                sx={{ ml: isXsScreen ? 0.5 : 1 }}
+              >
+                {isXsScreen ? <LoginIcon /> : t('app.login')}
+              </Button>
+            )}
+          </Box>
         </Toolbar>
       </AppBar>
       <Box
@@ -284,9 +361,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
           width: { sm: `calc(100% - ${drawerWidth}px)` },
-          minHeight: '100vh',
+          height: '100vh',
+          overflow: 'auto',
+          p: { xs: 1, sm: 2, md: 3 }
         }}
       >
         <Toolbar />

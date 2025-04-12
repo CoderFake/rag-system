@@ -40,8 +40,10 @@ const MarkdownContent = React.memo(({ content }: { content: string }) => {
         ul: ({ node, ...props }) => <Box component="ul" sx={{ pl: 2, my: 1 }} {...props} />,
         ol: ({ node, ...props }) => <Box component="ol" sx={{ pl: 2, my: 1 }} {...props} />,
         li: ({ node, ...props }) => <Box component="li" sx={{ mb: 0.5 }} {...props} />,
-        code: ({ node, inline, ...props }) => 
-          inline ? 
+        code: ({ node, ...props }) => {
+          const isInline = props.className ? !props.className.includes('language-') : true;
+          
+          return isInline ? 
             <Box 
               component="code" 
               sx={{ 
@@ -66,7 +68,8 @@ const MarkdownContent = React.memo(({ content }: { content: string }) => {
                 border: `1px solid ${theme.palette.divider}`,
               }}
               {...props}
-            />,
+            />
+        },
         blockquote: ({ node, ...props }) => (
           <Box
             component="blockquote"

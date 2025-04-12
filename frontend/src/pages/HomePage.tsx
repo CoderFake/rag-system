@@ -29,11 +29,11 @@ const HomePage: React.FC = () => {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Get or create session ID
+
     const currentSessionId = chatService.getSessionId();
     setSessionId(currentSessionId);
+    setMessages([]);
 
-    // Load chat history if authenticated
     if (isAuthenticated) {
       loadChatHistory(currentSessionId);
     }
@@ -60,7 +60,7 @@ const HomePage: React.FC = () => {
   const handleSendMessage = async (message: string) => {
     if (!message.trim()) return;
 
-    // Add user message to chat
+
     const userMessage: ChatMessageType = {
       id: `temp_${Date.now()}`,
       type: 'query',
@@ -72,10 +72,7 @@ const HomePage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // Send message to API
       const response = await chatService.sendMessage(message, sessionId, language);
-
-      // Add bot response to chat
       const botMessage: ChatMessageType = {
         id: response.response_id,
         type: 'response',
@@ -89,7 +86,6 @@ const HomePage: React.FC = () => {
     } catch (error) {
       console.error('Failed to send message:', error);
       
-      // Add error message
       const errorMessage: ChatMessageType = {
         id: `error_${Date.now()}`,
         type: 'response',
@@ -138,6 +134,7 @@ const HomePage: React.FC = () => {
         maxHeight: `calc(100vh - ${theme.spacing(8)})`,
         pt: 2,
         pb: 2,
+        width: '100%',
       }}
     >
       <Box 
@@ -215,7 +212,11 @@ const HomePage: React.FC = () => {
             </Typography>
           </Paper>
         ) : (
-          <Box sx={{ p: isMobile ? 1 : 2 }}>
+          <Box sx={{ 
+            p: isMobile ? 1 : 2,
+            width: '100%',
+            maxWidth: '100%',
+          }}>
             {messages.map((message) => (
               <ChatMessage
                 key={message.id}

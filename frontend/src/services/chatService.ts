@@ -33,20 +33,45 @@ class ChatService {
   }
 
   getSessionId(): string {
-    let sessionId = localStorage.getItem('chatSessionId');
-    if (!sessionId) {
-      sessionId = this.generateSessionId();
-      localStorage.setItem('chatSessionId', sessionId);
+    const userStr = localStorage.getItem('user');
+    const user = userStr ? JSON.parse(userStr) : null;
+
+    if (user && user.id) {
+      let userSessionId = localStorage.getItem(`chatSessionId_${user.id}`);
+      if (!userSessionId) {
+        userSessionId = this.generateSessionId();
+        localStorage.setItem(`chatSessionId_${user.id}`, userSessionId);
+      }
+      return userSessionId;
+    } else {
+      let anonSessionId = localStorage.getItem('anonChatSessionId');
+      if (!anonSessionId) {
+        anonSessionId = this.generateSessionId();
+        localStorage.setItem('anonChatSessionId', anonSessionId);
+      }
+      return anonSessionId;
     }
-    return sessionId;
   }
 
   setSessionId(sessionId: string): void {
-    localStorage.setItem('chatSessionId', sessionId);
+    const userStr = localStorage.getItem('user');
+    const user = userStr ? JSON.parse(userStr) : null;
+    if (user && user.id) {
+      localStorage.setItem(`chatSessionId_${user.id}`, sessionId);
+    } else {
+      localStorage.setItem('anonChatSessionId', sessionId);
+    }
   }
 
   clearSessionId(): void {
-    localStorage.removeItem('chatSessionId');
+    const userStr = localStorage.getItem('user');
+    const user = userStr ? JSON.parse(userStr) : null;
+    
+    if (user && user.id) {
+      localStorage.removeItem(`chatSessionId_${user.id}`);
+    } else {
+      localStorage.removeItem('anonChatSessionId');
+    }
   }
 }
 
