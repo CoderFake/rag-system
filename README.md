@@ -88,7 +88,7 @@ rag-system/
 
 1. Clone dự án:
 ```
-git clone https://github.com/yourusername/rag-system.git
+git clone https://github.com/coderfake/rag-system.git
 cd rag-system
 ```
 
