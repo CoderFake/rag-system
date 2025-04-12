@@ -39,6 +39,8 @@ app.config.from_object(Config)
 
 from llm.gemini_client import GeminiClient
 from vector_store.chroma_client import ChromaManager
+from vector_store.embedding_manager import EmbeddingManager
+from vector_store.query_processor import QueryProcessor
 
 
 jwt_manager = JWTManager(
@@ -50,19 +52,22 @@ jwt_manager = JWTManager(
 
 db_manager = MySQLManager()
 
-
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
-
 llm_client = GeminiClient(api_key=app.config["GEMINI_API_KEY"])
+
+embedding_service = EmbeddingService(model_name=app.config["EMBEDDING_MODEL"])
 
 chroma_manager = ChromaManager(
     persist_directory=app.config["CHROMA_DB_PATH"],
     embedding_model=app.config["EMBEDDING_MODEL"]
 )
 
-document_service = DocumentService(chroma_manager, db_manager)
-embedding_service = EmbeddingService(model_name=app.config["EMBEDDING_MODEL"])
+embedding_manager = EmbeddingManager(model_name=app.config["EMBEDDING_MODEL"])
+
+query_processor = QueryProcessor(chroma_manager, embedding_manager)
+
+document_service = DocumentService(chroma_manager, db_manager=db_manager)
 rag_service = RAGService(chroma_manager, llm_client)
 semantic_router = SemanticRouterService(llm_client)
 reflection_service = ReflectionService(llm_client)

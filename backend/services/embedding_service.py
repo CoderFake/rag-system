@@ -1,4 +1,4 @@
-from langchain_google_vertexai import VertexAIEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from typing import List, Any, Dict, Optional
 import logging
 import numpy as np
@@ -6,8 +6,8 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 class EmbeddingService:
-    def __init__(self, model_name: str = "models/embedding-001"):
-        self.embedding_model = VertexAIEmbeddings(model_name=model_name)
+    def __init__(self, model_name: str = "sentence-transformers/all-MiniLM-L6-v2"):
+        self.embedding_model = HuggingFaceEmbeddings(model_name=model_name)
     
     def get_embeddings(self, texts: List[str]) -> List[List[float]]:
         if not texts:
@@ -35,7 +35,6 @@ class EmbeddingService:
         if not embedding1 or not embedding2:
             return 0.0
             
-
         dot_product = sum(a * b for a, b in zip(embedding1, embedding2))
         magnitude1 = sum(a * a for a in embedding1) ** 0.5
         magnitude2 = sum(b * b for b in embedding2) ** 0.5

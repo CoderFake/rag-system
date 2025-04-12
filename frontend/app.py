@@ -14,7 +14,7 @@ from utils.api_client import APIClient
 from admin_page import SimpleAdminPage
 
 
-API_URL = os.getenv("API_URL", "http://localhost:5000")
+API_URL = os.getenv("API_URL", "http://backend:5000")
 
 
 api_client = APIClient(base_url=API_URL)

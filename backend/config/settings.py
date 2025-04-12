@@ -31,7 +31,7 @@ class Config:
     MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "rag_system")
     
     # Embedding Model
-    EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "models/embedding-001")
+    EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
     
     # Upload
     UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", "./uploads")
