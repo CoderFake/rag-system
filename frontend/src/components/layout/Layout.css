@@ -1,0 +1,38 @@
+/* Layout specific styles */
+.main-content {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+}
+
+/* Override any text-align center from global styles */
+.main-content > * {
+  text-align: left;
+}
+
+/* Ensure containers take full width */
+.main-content .MuiContainer-root {
+  width: 100%;
+  max-width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+
+/* Media query for larger screens */
+@media (min-width: 600px) {
+  .main-content .MuiContainer-root {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+}
+
+/* Media query for even larger screens */
+@media (min-width: 960px) {
+  .main-content .MuiContainer-root {
+    max-width: 100%;
+  }
+}
