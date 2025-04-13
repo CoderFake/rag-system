@@ -177,8 +177,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           alignItems: 'center', 
           padding: theme.spacing(0, 2),
           minWidth: open ? 180 : 0,
-          visibility: open ? 'visible' : 'hidden',
-          opacity: open ? 1 : 0, 
+          visibility: open || isMdScreen ? 'visible' : 'hidden',
+          opacity: open || isMdScreen ? 1 : 0, 
           transition: theme.transitions.create(['opacity', 'visibility'], {
              easing: theme.transitions.easing.sharp,
              duration: theme.transitions.duration.enteringScreen,
@@ -248,7 +248,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 >
                   {item.icon}
                 </ListItemIcon>
-                {open && (
+                {(open || isMdScreen) && (
                   <ListItemText 
                     primary={item.text} 
                     sx={{ 
@@ -296,7 +296,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 >
                   <Settings />
                 </ListItemIcon>
-                {open && (
+                {(open || isMdScreen) && (
                   <ListItemText 
                     primary={t('app.admin')} 
                     sx={{ 
@@ -308,10 +308,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     }} 
                   />
                 )}
-                {open && (adminMenuOpen ? <ExpandLess /> : <ExpandMore />)}
+                {(open || isMdScreen) && (adminMenuOpen ? <ExpandLess /> : <ExpandMore />)}
               </ListItemButton>
             </ListItem>
-            <Collapse in={adminMenuOpen && open} timeout="auto" unmountOnExit>
+            <Collapse in={(open || isMdScreen) && adminMenuOpen} timeout="auto" unmountOnExit>
               <List component="div" disablePadding>
                 {adminMenuItems.map((item) => (
                   <ListItem key={item.text} disablePadding>
@@ -350,7 +350,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                       >
                         {item.icon}
                       </ListItemIcon>
-                      {open && (
+                      {(open || isMdScreen) && (
                         <ListItemText 
                           primary={item.text} 
                           sx={{ 
@@ -392,13 +392,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             >
               {appTheme === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
             </ListItemIcon>
-            {open && (
+            {(open || isMdScreen) && (
               <ListItemText 
                 primary={t('app.theme')} 
                 sx={{ display: 'block' }} 
               />
             )}
-            {open && (
+            {(open || isMdScreen) && (
               <Switch
                 checked={appTheme === 'dark'}
                 onChange={toggleTheme}
@@ -434,7 +434,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <TranslateIcon />
               </Badge>
             </ListItemIcon>
-            {open && (
+            {(open || isMdScreen) && (
               <ListItemText 
                 primary={t('app.language')} 
                 secondary={language === 'vi' ? 'Tiếng Việt' : 'English'}
@@ -486,8 +486,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               display: 'flex', 
               alignItems: 'center', 
               width: '100%',
-              justifyContent: open ? 'space-between' : 'center',
-              px: open ? 1 : 0
+              justifyContent: open || isMdScreen ? 'space-between' : 'center',
+              px: open || isMdScreen ? 1 : 0
             }}
           >
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -496,14 +496,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 sx={{ 
                   width: 32, 
                   height: 32,
-                  mr: open ? 2 : 0,
+                  mr: open || isMdScreen ? 2 : 0,
                   background: theme.palette.primary.main,
                   color: theme.palette.primary.contrastText,
                 }}
               >
                 {user?.name?.charAt(0) || user?.username?.charAt(0) || 'U'}
               </Avatar>
-              {open && ( 
+              {(open || isMdScreen) && ( 
                 <Box sx={{ minWidth: 0, maxWidth: 120 }}>
                   <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>
                     {user?.name || user?.username}
@@ -514,7 +514,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 </Box>
               )}
             </Box>
-            {open && ( 
+            {(open || isMdScreen) && ( 
               <IconButton 
                 onClick={handleLogout}
                 size="small"
@@ -534,17 +534,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           <Button
             variant="outlined"
             startIcon={<LoginIcon />}
-            fullWidth={open} // Full width only when open
+            fullWidth={open || isMdScreen}
             onClick={() => navigate('/login')}
             sx={{
               borderRadius: '20px',
               py: 1,
               textTransform: 'none',
-              minWidth: open ? 'auto' : 40, 
-              px: open ? 2 : 1,
+              minWidth: open || isMdScreen ? 'auto' : 40, 
+              px: open || isMdScreen ? 2 : 1,
             }}
           >
-            {open ? t('app.login') : ''}
+            {open || isMdScreen ? t('app.login') : ''}
           </Button>
         )}
       </Box>
@@ -553,7 +553,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   return (
     <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
-      {/* AppBar only for mobile (xs screens) */}
+      {/* AppBar only for mobile */}
       <AppBar
         position="fixed"
         sx={{
@@ -564,6 +564,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             ? 'rgba(17, 24, 39, 0.8)'
             : 'rgba(255, 255, 255, 0.8)',
           borderBottom: `1px solid ${theme.palette.divider}`,
+          zIndex: theme.zIndex.drawer + 1,
         }}
       >
         <Toolbar>
@@ -596,7 +597,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </Typography>
 
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            {/* FIX BUG 4: Fixed color issue with theme toggle button */}
             <IconButton 
               onClick={toggleTheme}
               size="small"
@@ -607,8 +607,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             >
               {appTheme === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
             </IconButton>
-
-            {/* FIX BUG 4: Fixed color issue with language button */}
             <IconButton 
               onClick={handleLangMenu}
               size="small"
@@ -703,20 +701,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               easing: theme.transitions.easing.sharp,
               duration: theme.transitions.duration.enteringScreen,
             }),
+            zIndex: theme.zIndex.drawer,
           },
         }}
       >
         {drawerContent}
       </Drawer>
       
-      {/* Toggle button for collapsed sidebar on medium+ screens */}
       {!isMdScreen && !open && (
         <Box
           sx={{
             position: 'fixed',
             top: '50%',
             left: 0,
-            zIndex: 1200,
+            zIndex: theme.zIndex.drawer - 1, 
             transform: 'translateY(-50%)',
             transition: theme.transitions.create('all', {
               easing: theme.transitions.easing.sharp,
@@ -740,8 +738,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </IconButton>
         </Box>
       )}
-
-      {/* Main Content Area - Simplified */}
+      {/* Main Content Area */}
       <Box
         component="main"
         className="main-content"
@@ -751,7 +748,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           height: '100vh',
           overflow: 'auto',
           p: { xs: 1, sm: 2, md: 3 },
-          pt: { xs: `calc(${theme.mixins.toolbar.minHeight}px + ${theme.spacing(1)})`, sm: 2, md: 3 },
+          pt: { 
+            xs: `calc(${theme.mixins.toolbar.minHeight}px + ${theme.spacing(1)})`, 
+            sm: 2, 
+            md: 3 
+          },
           transition: theme.transitions.create(['width', 'margin'], {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.enteringScreen,
@@ -761,7 +762,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             : 'radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 1) 0%, rgba(247, 250, 252, 1) 100%)',
         }}
       >
-        {/* No need for Toolbar spacer here, padding handles it */}
         {children}
       </Box>
     </Box>
