@@ -13,13 +13,11 @@ import {
 } from './pages';
 import './i18n';
 
-// Create a route guard for authenticated routes
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   const isAuthenticated = localStorage.getItem('accessToken') !== null;
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
 };
 
-// Create a route guard for admin routes
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const isAuthenticated = localStorage.getItem('accessToken') !== null;
   const userStr = localStorage.getItem('user');
@@ -43,7 +41,6 @@ const App: React.FC = () => {
   );
 };
 
-// Theme consumer component to use the theme context
 const ThemeConsumer: React.FC = () => {
   const { theme } = useTheme();
   

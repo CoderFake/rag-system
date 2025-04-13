@@ -32,18 +32,37 @@ import {
 import ReactMarkdown from 'react-markdown';
 import { ChatMessage as ChatMessageType, DocumentSource } from '../../types';
 
-const TypeWriter = ({ content, speed = 15 }: { content: string; speed?: number }) => {
-  const [displayedContent, setDisplayedContent] = useState('');
-  const [isComplete, setIsComplete] = useState(false);
+const TypeWriter = ({ content, speed = 15, animate = true }: { content: string; speed?: number; animate?: boolean }) => {
+  const [displayedContent, setDisplayedContent] = useState(animate ? '' : content);
+  const [isComplete, setIsComplete] = useState(!animate);
   const position = useRef(0);
+  const contentRef = useRef(content);
+
 
   useEffect(() => {
-    position.current = 0;
-    setDisplayedContent('');
-    setIsComplete(false);
-  }, [content]);
+
+    if (content !== contentRef.current) {
+      contentRef.current = content;
+      
+
+      if (animate) {
+        position.current = 0;
+        setDisplayedContent('');
+        setIsComplete(false);
+      } else {
+
+        setDisplayedContent(content);
+        setIsComplete(true);
+      }
+    }
+  }, [content, animate]);
 
   useEffect(() => {
+
+    if (!animate || isComplete) {
+      return;
+    }
+
     if (displayedContent === content) {
       setIsComplete(true);
       return;
@@ -55,12 +74,7 @@ const TypeWriter = ({ content, speed = 15 }: { content: string; speed?: number }
     }, speed);
 
     return () => clearTimeout(timer);
-  }, [displayedContent, content, speed]);
-
-  const blinkAnimation = `@keyframes blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0; }
-  }`;
+  }, [displayedContent, content, speed, animate, isComplete]);
 
   return (
     <>
@@ -92,29 +106,29 @@ const MarkdownContent = React.memo(({ content, animate = false }: { content: str
       components={{
         p: ({ node, ...props }) => (
           <Typography variant="body1" gutterBottom {...props}>
-            {animate ? <TypeWriter content={props.children as string} /> : props.children}
+            {animate ? <TypeWriter content={props.children as string} animate={animate} /> : props.children}
           </Typography>
         ),
         h1: ({ node, ...props }) => (
           <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, mt: 2 }} {...props}>
-            {animate ? <TypeWriter content={props.children as string} /> : props.children}
+            {animate ? <TypeWriter content={props.children as string} animate={animate} /> : props.children}
           </Typography>
         ),
         h2: ({ node, ...props }) => (
           <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mt: 2 }} {...props}>
-            {animate ? <TypeWriter content={props.children as string} /> : props.children}
+            {animate ? <TypeWriter content={props.children as string} animate={animate} /> : props.children}
           </Typography>
         ),
         h3: ({ node, ...props }) => (
           <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mt: 1.5 }} {...props}>
-            {animate ? <TypeWriter content={props.children as string} /> : props.children}
+            {animate ? <TypeWriter content={props.children as string} animate={animate} /> : props.children}
           </Typography>
         ),
         ul: ({ node, ...props }) => <Box component="ul" sx={{ pl: 2, my: 1 }} {...props} />,
         ol: ({ node, ...props }) => <Box component="ol" sx={{ pl: 2, my: 1 }} {...props} />,
         li: ({ node, ...props }) => (
           <Box component="li" sx={{ mb: 0.5 }} {...props}>
-            {animate ? <TypeWriter content={props.children as string} /> : props.children}
+            {animate ? <TypeWriter content={props.children as string} animate={animate} /> : props.children}
           </Box>
         ),
         code: ({ node, ...props }) => {
@@ -172,16 +186,24 @@ interface ChatMessageProps {
   message: ChatMessageType;
   onFeedback?: (responseId: string, type: string, value: string) => Promise<void>;
   animate?: boolean;
+  isNewMessage?: boolean;
 }
 
-const ChatMessage: React.FC<ChatMessageProps> = ({ message, onFeedback, animate = true }) => {
+const ChatMessage: React.FC<ChatMessageProps> = ({ 
+  message, 
+  onFeedback, 
+  animate = true,
+  isNewMessage = false 
+}) => {
   const { t } = useTranslation();
   const theme = useTheme();
   const [showSources, setShowSources] = useState(false);
   const [showFeedbackForm, setShowFeedbackForm] = useState(false);
   const [feedbackComment, setFeedbackComment] = useState('');
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
-  const [isJustAdded, setIsJustAdded] = useState(true);
+  const [isJustAdded, setIsJustAdded] = useState(isNewMessage);
+  
+  const shouldAnimate = animate && isNewMessage;
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -285,7 +307,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onFeedback, animate 
           </Avatar>
           
           <Box sx={{ flexGrow: 1 }}>
-            <MarkdownContent content={message.content} animate={animate} />
+            <MarkdownContent content={message.content} animate={shouldAnimate} />
 
             {hasSources && (
               <Box sx={{ mt: 2 }}>

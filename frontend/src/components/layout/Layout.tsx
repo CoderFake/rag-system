@@ -62,6 +62,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { theme: appTheme, toggleTheme } = useAppTheme();
   
   const isMdUp = useMediaQuery(theme.breakpoints.up('md'));
+  const isSmDown = useMediaQuery(theme.breakpoints.down('sm'));
   const [open, setOpen] = useState(isMdUp); 
   const [mobileOpen, setMobileOpen] = useState(false);
   
@@ -79,7 +80,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   }, [isMdUp]);
 
   const handleDrawerToggle = () => {
-    if (isMdScreen) {
+    if (isSmDown) {
       setMobileOpen(!mobileOpen);
     } else {
       setOpen(!open);
@@ -115,7 +116,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const handleNavClick = (path: string) => {
     navigate(path);
-    if (isMdScreen) {
+    if (isSmDown) {
       setMobileOpen(false); 
     }
   };
@@ -167,40 +168,40 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <Box sx={{ 
         display: 'flex', 
         alignItems: 'center', 
-        justifyContent: 'space-between',
+        justifyContent: open ? 'space-between' : 'center',
         padding: theme.spacing(0, 1), 
         ...theme.mixins.toolbar,
         borderBottom: `1px solid ${theme.palette.divider}`,
       }}>
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          padding: theme.spacing(0, 2),
-          minWidth: open ? 180 : 0,
-          visibility: open || isMdScreen ? 'visible' : 'hidden',
-          opacity: open || isMdScreen ? 1 : 0, 
-          transition: theme.transitions.create(['opacity', 'visibility'], {
-             easing: theme.transitions.easing.sharp,
-             duration: theme.transitions.duration.enteringScreen,
-          }),
-        }}>
-          <Typography 
-            variant={isXsScreen ? "h6" : "h5"} 
-            noWrap
-            sx={{ 
-              fontWeight: 700,
-              whiteSpace: 'nowrap',
-              background: theme.palette.mode === 'dark' 
-                ? 'linear-gradient(45deg, #6b46c1 30%, #3182ce 90%)' 
-                : 'linear-gradient(45deg, #4338ca 30%, #3b82f6 90%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}
-          >
-            {t('app.title')}
-          </Typography>
-        </Box>
-        {!isMdScreen && ( 
+        {(open || isSmDown) && (
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            padding: theme.spacing(0, 2),
+            minWidth: 180,
+            transition: theme.transitions.create('width', {
+              easing: theme.transitions.easing.sharp,
+              duration: theme.transitions.duration.enteringScreen,
+            }),
+          }}>
+            <Typography 
+              variant={isXsScreen ? "h6" : "h5"} 
+              noWrap
+              sx={{ 
+                fontWeight: 700,
+                whiteSpace: 'nowrap',
+                background: theme.palette.mode === 'dark' 
+                  ? 'linear-gradient(45deg, #6b46c1 30%, #3182ce 90%)' 
+                  : 'linear-gradient(45deg, #4338ca 30%, #3b82f6 90%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >
+              {t('app.title')}
+            </Typography>
+          </Box>
+        )}
+        {!isSmDown && ( 
           <IconButton onClick={handleDrawerToggle}>
             {open ? <ChevronLeftIcon /> : <ChevronRightIcon />}
           </IconButton>
@@ -248,7 +249,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 >
                   {item.icon}
                 </ListItemIcon>
-                {(open || isMdScreen) && (
+                {(open || isSmDown) && (
                   <ListItemText 
                     primary={item.text} 
                     sx={{ 
@@ -296,7 +297,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 >
                   <Settings />
                 </ListItemIcon>
-                {(open || isMdScreen) && (
+                {(open || isSmDown) && (
                   <ListItemText 
                     primary={t('app.admin')} 
                     sx={{ 
@@ -308,10 +309,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     }} 
                   />
                 )}
-                {(open || isMdScreen) && (adminMenuOpen ? <ExpandLess /> : <ExpandMore />)}
+                {(open || isSmDown) && (adminMenuOpen ? <ExpandLess /> : <ExpandMore />)}
               </ListItemButton>
             </ListItem>
-            <Collapse in={(open || isMdScreen) && adminMenuOpen} timeout="auto" unmountOnExit>
+            <Collapse in={(open || isSmDown) && adminMenuOpen} timeout="auto" unmountOnExit>
               <List component="div" disablePadding>
                 {adminMenuItems.map((item) => (
                   <ListItem key={item.text} disablePadding>
@@ -350,7 +351,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                       >
                         {item.icon}
                       </ListItemIcon>
-                      {(open || isMdScreen) && (
+                      {(open || isSmDown) && (
                         <ListItemText 
                           primary={item.text} 
                           sx={{ 
@@ -392,13 +393,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             >
               {appTheme === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
             </ListItemIcon>
-            {(open || isMdScreen) && (
+            {(open || isSmDown) && (
               <ListItemText 
                 primary={t('app.theme')} 
                 sx={{ display: 'block' }} 
               />
             )}
-            {(open || isMdScreen) && (
+            {(open || isSmDown) && (
               <Switch
                 checked={appTheme === 'dark'}
                 onChange={toggleTheme}
@@ -434,7 +435,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <TranslateIcon />
               </Badge>
             </ListItemIcon>
-            {(open || isMdScreen) && (
+            {(open || isSmDown) && (
               <ListItemText 
                 primary={t('app.language')} 
                 secondary={language === 'vi' ? 'Tiếng Việt' : 'English'}
@@ -486,8 +487,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               display: 'flex', 
               alignItems: 'center', 
               width: '100%',
-              justifyContent: open || isMdScreen ? 'space-between' : 'center',
-              px: open || isMdScreen ? 1 : 0
+              justifyContent: open || isSmDown ? 'space-between' : 'center',
+              px: open || isSmDown ? 1 : 0
             }}
           >
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -496,14 +497,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 sx={{ 
                   width: 32, 
                   height: 32,
-                  mr: open || isMdScreen ? 2 : 0,
+                  mr: open || isSmDown ? 2 : 0,
                   background: theme.palette.primary.main,
                   color: theme.palette.primary.contrastText,
                 }}
               >
                 {user?.name?.charAt(0) || user?.username?.charAt(0) || 'U'}
               </Avatar>
-              {(open || isMdScreen) && ( 
+              {(open || isSmDown) && ( 
                 <Box sx={{ minWidth: 0, maxWidth: 120 }}>
                   <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>
                     {user?.name || user?.username}
@@ -514,7 +515,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 </Box>
               )}
             </Box>
-            {(open || isMdScreen) && ( 
+            {(open || isSmDown) && ( 
               <IconButton 
                 onClick={handleLogout}
                 size="small"
@@ -534,17 +535,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           <Button
             variant="outlined"
             startIcon={<LoginIcon />}
-            fullWidth={open || isMdScreen}
+            fullWidth={open || isSmDown}
             onClick={() => navigate('/login')}
             sx={{
               borderRadius: '20px',
               py: 1,
               textTransform: 'none',
-              minWidth: open || isMdScreen ? 'auto' : 40, 
-              px: open || isMdScreen ? 2 : 1,
+              minWidth: open || isSmDown ? 'auto' : 40, 
+              px: open || isSmDown ? 2 : 1,
             }}
           >
-            {open || isMdScreen ? t('app.login') : ''}
+            {open || isSmDown ? t('app.login') : ''}
           </Button>
         )}
       </Box>
@@ -682,9 +683,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       {/* Drawer Navigation */}
       <Drawer
-        variant={isMdScreen ? "temporary" : "permanent"}
-        open={isMdScreen ? mobileOpen : open}
-        onClose={isMdScreen ? handleDrawerToggle : undefined}
+        variant={isSmDown ? "temporary" : "permanent"}
+        open={isSmDown ? mobileOpen : open}
+        onClose={isSmDown ? handleDrawerToggle : undefined}
         ModalProps={{
           keepMounted: true,
         }}
@@ -692,11 +693,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           width: { md: open ? drawerWidth : collapsedDrawerWidth },
           flexShrink: 0,
           '& .MuiDrawer-paper': {
-            width: isMdScreen ? drawerWidth : (open ? drawerWidth : collapsedDrawerWidth),
+            width: isSmDown ? drawerWidth : (open ? drawerWidth : collapsedDrawerWidth),
             boxSizing: 'border-box',
             overflowX: 'hidden',
             border: 'none',
-            boxShadow: isMdScreen ? 3 : 'none',
+            boxShadow: isSmDown ? 3 : 'none',
             transition: theme.transitions.create('width', {
               easing: theme.transitions.easing.sharp,
               duration: theme.transitions.duration.enteringScreen,
@@ -708,7 +709,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         {drawerContent}
       </Drawer>
       
-      {!isMdScreen && !open && (
+      {!isSmDown && !open && (
         <Box
           sx={{
             position: 'fixed',

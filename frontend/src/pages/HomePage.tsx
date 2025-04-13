@@ -25,14 +25,15 @@ const HomePage: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string>('');
+  const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-
     const currentSessionId = chatService.getSessionId();
     setSessionId(currentSessionId);
     setMessages([]);
+    setNewMessageIds(new Set()); 
 
     if (isAuthenticated) {
       loadChatHistory(currentSessionId);
@@ -49,6 +50,8 @@ const HomePage: React.FC = () => {
       const response = await chatService.getChatHistory(sid);
       if (response.history && response.history.length > 0) {
         setMessages(response.history);
+
+        setNewMessageIds(new Set());
       }
     } catch (error) {
       console.error('Failed to load chat history:', error);
@@ -61,18 +64,25 @@ const HomePage: React.FC = () => {
     if (!message.trim()) return;
 
 
+    const userMessageId = `temp_${Date.now()}`;
+    
     const userMessage: ChatMessageType = {
-      id: `temp_${Date.now()}`,
+      id: userMessageId,
       type: 'query',
       content: message,
       created_at: new Date().toISOString(),
     };
 
+
     setMessages((prev) => [...prev, userMessage]);
+    setNewMessageIds((prev) => new Set(prev).add(userMessageId));
+    
     setIsLoading(true);
 
     try {
       const response = await chatService.sendMessage(message, sessionId, language);
+      
+
       const botMessage: ChatMessageType = {
         id: response.response_id,
         type: 'response',
@@ -82,18 +92,22 @@ const HomePage: React.FC = () => {
         sources: response.source_documents,
       };
 
+
       setMessages((prev) => [...prev, botMessage]);
+      setNewMessageIds((prev) => new Set(prev).add(response.response_id));
     } catch (error) {
       console.error('Failed to send message:', error);
       
+      const errorMessageId = `error_${Date.now()}`;
       const errorMessage: ChatMessageType = {
-        id: `error_${Date.now()}`,
+        id: errorMessageId,
         type: 'response',
         content: t('chat.error'),
         created_at: new Date().toISOString(),
       };
       
       setMessages((prev) => [...prev, errorMessage]);
+      setNewMessageIds((prev) => new Set(prev).add(errorMessageId));
     } finally {
       setIsLoading(false);
     }
@@ -118,6 +132,7 @@ const HomePage: React.FC = () => {
     chatService.setSessionId(newSessionId);
     setSessionId(newSessionId);
     setMessages([]);
+    setNewMessageIds(new Set()); // Clear new message IDs for new chat
   };
 
   const scrollToBottom = () => {
@@ -222,6 +237,7 @@ const HomePage: React.FC = () => {
                 key={message.id}
                 message={message}
                 onFeedback={handleFeedback}
+                isNewMessage={newMessageIds.has(message.id)} 
               />
             ))}
             <div ref={messagesEndRef} />
