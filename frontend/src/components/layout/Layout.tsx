@@ -176,8 +176,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           display: 'flex', 
           alignItems: 'center', 
           padding: theme.spacing(0, 2),
+          minWidth: open ? 180 : 0,
+          visibility: open ? 'visible' : 'hidden',
           opacity: open ? 1 : 0, 
-          transition: theme.transitions.create('opacity', {
+          transition: theme.transitions.create(['opacity', 'visibility'], {
              easing: theme.transitions.easing.sharp,
              duration: theme.transitions.duration.enteringScreen,
           }),
@@ -187,6 +189,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             noWrap
             sx={{ 
               fontWeight: 700,
+              whiteSpace: 'nowrap',
               background: theme.palette.mode === 'dark' 
                 ? 'linear-gradient(45deg, #6b46c1 30%, #3182ce 90%)' 
                 : 'linear-gradient(45deg, #4338ca 30%, #3b82f6 90%)',
@@ -245,16 +248,18 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 >
                   {item.icon}
                 </ListItemIcon>
-                <ListItemText 
-                  primary={item.text} 
-                  sx={{ 
-                    opacity: open ? 1 : 0,
-                    color: window.location.pathname === item.path 
-                      ? theme.palette.primary.main 
-                      : theme.palette.text.secondary,
-                    fontWeight: window.location.pathname === item.path ? 600 : 400,
-                  }} 
-                />
+                {open && (
+                  <ListItemText 
+                    primary={item.text} 
+                    sx={{ 
+                      display: 'block',
+                      color: window.location.pathname === item.path 
+                        ? theme.palette.primary.main 
+                        : theme.palette.text.secondary,
+                      fontWeight: window.location.pathname === item.path ? 600 : 400,
+                    }} 
+                  />
+                )}
               </ListItemButton>
             </ListItem>
           );
@@ -291,16 +296,18 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 >
                   <Settings />
                 </ListItemIcon>
-                <ListItemText 
-                  primary={t('app.admin')} 
-                  sx={{ 
-                    opacity: open ? 1 : 0,
-                    color: adminMenuOpen
-                      ? theme.palette.primary.main
-                      : theme.palette.text.secondary,
-                    fontWeight: adminMenuOpen ? 600 : 400,
-                  }} 
-                />
+                {open && (
+                  <ListItemText 
+                    primary={t('app.admin')} 
+                    sx={{ 
+                      display: 'block',
+                      color: adminMenuOpen
+                        ? theme.palette.primary.main
+                        : theme.palette.text.secondary,
+                      fontWeight: adminMenuOpen ? 600 : 400,
+                    }} 
+                  />
+                )}
                 {open && (adminMenuOpen ? <ExpandLess /> : <ExpandMore />)}
               </ListItemButton>
             </ListItem>
@@ -343,16 +350,18 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                       >
                         {item.icon}
                       </ListItemIcon>
-                      <ListItemText 
-                        primary={item.text} 
-                        sx={{ 
-                          opacity: open ? 1 : 0,
-                          color: window.location.pathname === item.path 
-                            ? theme.palette.primary.main 
-                            : theme.palette.text.secondary,
-                          fontWeight: window.location.pathname === item.path ? 600 : 400,
-                        }} 
-                      />
+                      {open && (
+                        <ListItemText 
+                          primary={item.text} 
+                          sx={{ 
+                            display: 'block',
+                            color: window.location.pathname === item.path 
+                              ? theme.palette.primary.main 
+                              : theme.palette.text.secondary,
+                            fontWeight: window.location.pathname === item.path ? 600 : 400,
+                          }} 
+                        />
+                      )}
                     </ListItemButton>
                   </ListItem>
                 ))}
@@ -383,10 +392,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             >
               {appTheme === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
             </ListItemIcon>
-            <ListItemText 
-              primary={t('app.theme')} 
-              sx={{ opacity: open ? 1 : 0 }} 
-            />
+            {open && (
+              <ListItemText 
+                primary={t('app.theme')} 
+                sx={{ display: 'block' }} 
+              />
+            )}
             {open && (
               <Switch
                 checked={appTheme === 'dark'}
@@ -423,16 +434,18 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <TranslateIcon />
               </Badge>
             </ListItemIcon>
-            <ListItemText 
-              primary={t('app.language')} 
-              secondary={language === 'vi' ? 'Tiếng Việt' : 'English'}
-              sx={{ 
-                opacity: open ? 1 : 0,
-                '& .MuiListItemText-secondary': {
-                  fontSize: '0.8rem'
-                }
-              }} 
-            />
+            {open && (
+              <ListItemText 
+                primary={t('app.language')} 
+                secondary={language === 'vi' ? 'Tiếng Việt' : 'English'}
+                sx={{ 
+                  display: 'block',
+                  '& .MuiListItemText-secondary': {
+                    fontSize: '0.8rem'
+                  }
+                }} 
+              />
+            )}
           </ListItemButton>
         </ListItem>
       </List>
@@ -491,7 +504,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 {user?.name?.charAt(0) || user?.username?.charAt(0) || 'U'}
               </Avatar>
               {open && ( 
-                <Box>
+                <Box sx={{ minWidth: 0, maxWidth: 120 }}>
                   <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>
                     {user?.name || user?.username}
                   </Typography>
@@ -555,11 +568,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       >
         <Toolbar>
           <IconButton
-            color="inherit"
             aria-label="open drawer"
             edge="start"
             onClick={handleDrawerToggle}
-            sx={{ mr: 2 }}
+            sx={{ 
+              mr: 2,
+              color: theme.palette.mode === 'dark' ? 'white' : 'rgba(0, 0, 0, 0.87)'
+            }}
           >
             <MenuIcon />
           </IconButton>
@@ -581,20 +596,26 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </Typography>
 
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            {/* FIX BUG 4: Fixed color issue with theme toggle button */}
             <IconButton 
-              color="inherit" 
               onClick={toggleTheme}
               size="small"
-              sx={{ ml: 1 }}
+              sx={{ 
+                ml: 1,
+                color: theme.palette.mode === 'dark' ? 'white' : 'rgba(0, 0, 0, 0.87)'
+              }}
             >
               {appTheme === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
             </IconButton>
 
+            {/* FIX BUG 4: Fixed color issue with language button */}
             <IconButton 
-              color="inherit" 
               onClick={handleLangMenu}
               size="small"
-              sx={{ ml: 1 }}
+              sx={{ 
+                ml: 1,
+                color: theme.palette.mode === 'dark' ? 'white' : 'rgba(0, 0, 0, 0.87)'
+              }}
             >
               <Badge 
                 color="secondary" 
@@ -612,8 +633,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 aria-controls="menu-appbar"
                 aria-haspopup="true"
                 onClick={handleMenu}
-                color="inherit"
-                sx={{ ml: 1 }}
+                sx={{ 
+                  ml: 1,
+                  color: theme.palette.mode === 'dark' ? 'white' : 'rgba(0, 0, 0, 0.87)'
+                }}
               >
                 <AccountCircle />
               </IconButton>
@@ -623,7 +646,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 size="small"
                 startIcon={<LoginIcon />}
                 onClick={() => navigate('/login')}
-                sx={{ ml: 1 }}
+                sx={{ 
+                  ml: 1,
+                  color: theme.palette.mode === 'dark' ? 'white' : 'rgba(0, 0, 0, 0.87)'
+                }}
               >
                 {t('app.login')}
               </Button>
@@ -631,6 +657,30 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </Box>
         </Toolbar>
       </AppBar>
+
+      {/* Menu for user options */}
+      <Menu
+        id="menu-appbar"
+        anchorEl={anchorEl}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'right',
+        }}
+        keepMounted
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+        open={Boolean(anchorEl)}
+        onClose={handleClose}
+      >
+        <MenuItem onClick={handleClose}>
+          {t('app.profile')}
+        </MenuItem>
+        <MenuItem onClick={handleLogout}>
+          {t('app.logout')}
+        </MenuItem>
+      </Menu>
 
       {/* Drawer Navigation */}
       <Drawer
