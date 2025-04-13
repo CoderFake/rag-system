@@ -32,39 +32,42 @@ import {
 import ReactMarkdown from 'react-markdown';
 import { ChatMessage as ChatMessageType, DocumentSource } from '../../types';
 
-const TypeWriter = ({ content, speed = 15, animate = true }: { content: string; speed?: number; animate?: boolean }) => {
+
+const TypeWriter = ({ content, speed = 15, animate = true, onComplete = () => {} }: { 
+  content: string; 
+  speed?: number; 
+  animate?: boolean;
+  onComplete?: () => void;
+}) => {
   const [displayedContent, setDisplayedContent] = useState(animate ? '' : content);
   const [isComplete, setIsComplete] = useState(!animate);
   const position = useRef(0);
   const contentRef = useRef(content);
 
-
   useEffect(() => {
-
     if (content !== contentRef.current) {
       contentRef.current = content;
       
-
       if (animate) {
         position.current = 0;
         setDisplayedContent('');
         setIsComplete(false);
       } else {
-
         setDisplayedContent(content);
         setIsComplete(true);
+        onComplete();
       }
     }
-  }, [content, animate]);
+  }, [content, animate, onComplete]);
 
   useEffect(() => {
-
     if (!animate || isComplete) {
       return;
     }
 
-    if (displayedContent === content) {
+    if (position.current >= content.length) {
       setIsComplete(true);
+      onComplete();
       return;
     }
 
@@ -74,7 +77,7 @@ const TypeWriter = ({ content, speed = 15, animate = true }: { content: string; 
     }, speed);
 
     return () => clearTimeout(timer);
-  }, [displayedContent, content, speed, animate, isComplete]);
+  }, [displayedContent, content, speed, animate, isComplete, onComplete]);
 
   return (
     <>
@@ -98,71 +101,155 @@ const TypeWriter = ({ content, speed = 15, animate = true }: { content: string; 
   );
 };
 
-const MarkdownContent = React.memo(({ content, animate = false }: { content: string; animate?: boolean }) => {
+
+const SequentialTypeWriter = ({ 
+  blocks, 
+  speed = 15, 
+  animate = false 
+}: { 
+  blocks: { type: string; content: string }[]; 
+  speed?: number; 
+  animate?: boolean;
+}) => {
+  const [currentBlockIndex, setCurrentBlockIndex] = useState(animate ? 0 : blocks.length);
   const theme = useTheme();
-  
-  return (
-    <ReactMarkdown
-      components={{
-        p: ({ node, ...props }) => (
-          <Typography variant="body1" gutterBottom {...props}>
-            {animate ? <TypeWriter content={props.children as string} animate={animate} /> : props.children}
+
+  const renderBlock = (block: { type: string; content: string }, index: number) => {
+    const isActive = index <= currentBlockIndex;
+    
+    switch (block.type) {
+      case 'paragraph':
+        return (
+          <Typography key={index} variant="body1" gutterBottom>
+            {isActive ? (
+              index === currentBlockIndex && animate ? (
+                <TypeWriter 
+                  content={block.content} 
+                  animate={animate} 
+                  speed={speed}
+                  onComplete={() => setCurrentBlockIndex(prev => prev + 1)}
+                />
+              ) : block.content
+            ) : ''}
           </Typography>
-        ),
-        h1: ({ node, ...props }) => (
-          <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, mt: 2 }} {...props}>
-            {animate ? <TypeWriter content={props.children as string} animate={animate} /> : props.children}
+        );
+      case 'heading1':
+        return (
+          <Typography key={index} variant="h5" gutterBottom sx={{ fontWeight: 600, mt: 2 }}>
+            {isActive ? (
+              index === currentBlockIndex && animate ? (
+                <TypeWriter 
+                  content={block.content} 
+                  animate={animate} 
+                  speed={speed}
+                  onComplete={() => setCurrentBlockIndex(prev => prev + 1)}
+                />
+              ) : block.content
+            ) : ''}
           </Typography>
-        ),
-        h2: ({ node, ...props }) => (
-          <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mt: 2 }} {...props}>
-            {animate ? <TypeWriter content={props.children as string} animate={animate} /> : props.children}
+        );
+      case 'heading2':
+        return (
+          <Typography key={index} variant="h6" gutterBottom sx={{ fontWeight: 600, mt: 2 }}>
+            {isActive ? (
+              index === currentBlockIndex && animate ? (
+                <TypeWriter 
+                  content={block.content} 
+                  animate={animate} 
+                  speed={speed}
+                  onComplete={() => setCurrentBlockIndex(prev => prev + 1)}
+                />
+              ) : block.content
+            ) : ''}
           </Typography>
-        ),
-        h3: ({ node, ...props }) => (
-          <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mt: 1.5 }} {...props}>
-            {animate ? <TypeWriter content={props.children as string} animate={animate} /> : props.children}
+        );
+      case 'heading3':
+        return (
+          <Typography key={index} variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mt: 1.5 }}>
+            {isActive ? (
+              index === currentBlockIndex && animate ? (
+                <TypeWriter 
+                  content={block.content} 
+                  animate={animate} 
+                  speed={speed}
+                  onComplete={() => setCurrentBlockIndex(prev => prev + 1)}
+                />
+              ) : block.content
+            ) : ''}
           </Typography>
-        ),
-        ul: ({ node, ...props }) => <Box component="ul" sx={{ pl: 2, my: 1 }} {...props} />,
-        ol: ({ node, ...props }) => <Box component="ol" sx={{ pl: 2, my: 1 }} {...props} />,
-        li: ({ node, ...props }) => (
-          <Box component="li" sx={{ mb: 0.5 }} {...props}>
-            {animate ? <TypeWriter content={props.children as string} animate={animate} /> : props.children}
+        );
+      case 'listItem':
+        return (
+          <Box key={index} component="li" sx={{ mb: 0.5 }}>
+            {isActive ? (
+              index === currentBlockIndex && animate ? (
+                <TypeWriter 
+                  content={block.content} 
+                  animate={animate} 
+                  speed={speed}
+                  onComplete={() => setCurrentBlockIndex(prev => prev + 1)}
+                />
+              ) : block.content
+            ) : ''}
           </Box>
-        ),
-        code: ({ node, ...props }) => {
-          const isInline = props.className ? !props.className.includes('language-') : true;
-          
-          return isInline ? 
-            <Box 
-              component="code" 
-              sx={{ 
-                backgroundColor: theme.palette.mode === 'dark' ? alpha('#000', 0.3) : alpha('#eee', 0.8),
-                borderRadius: '4px',
-                px: 0.5,
-                py: 0.25,
-                fontFamily: 'monospace',
-              }} 
-              {...props} 
-            /> : 
-            <Box
-              component="pre"
-              sx={{
-                backgroundColor: theme.palette.mode === 'dark' ? alpha('#000', 0.3) : alpha('#eee', 0.8),
-                borderRadius: '6px',
-                p: 1.5,
-                my: 1.5,
-                overflowX: 'auto',
-                fontFamily: 'monospace',
-                fontSize: '0.875rem',
-                border: `1px solid ${theme.palette.divider}`,
-              }}
-              {...props}
-            />
-        },
-        blockquote: ({ node, ...props }) => (
+        );
+      case 'code':
+        return (
+          <Box 
+            key={index}
+            component="pre"
+            sx={{
+              backgroundColor: theme.palette.mode === 'dark' ? alpha('#000', 0.3) : alpha('#eee', 0.8),
+              borderRadius: '6px',
+              p: 1.5,
+              my: 1.5,
+              overflowX: 'auto',
+              fontFamily: 'monospace',
+              fontSize: '0.875rem',
+              border: `1px solid ${theme.palette.divider}`,
+            }}
+          >
+            {isActive ? (
+              index === currentBlockIndex && animate ? (
+                <TypeWriter 
+                  content={block.content} 
+                  animate={animate} 
+                  speed={speed}
+                  onComplete={() => setCurrentBlockIndex(prev => prev + 1)}
+                />
+              ) : block.content
+            ) : ''}
+          </Box>
+        );
+      case 'inlineCode':
+        return (
+          <Box 
+            key={index}
+            component="code" 
+            sx={{ 
+              backgroundColor: theme.palette.mode === 'dark' ? alpha('#000', 0.3) : alpha('#eee', 0.8),
+              borderRadius: '4px',
+              px: 0.5,
+              py: 0.25,
+              fontFamily: 'monospace',
+            }} 
+          >
+            {isActive ? (
+              index === currentBlockIndex && animate ? (
+                <TypeWriter 
+                  content={block.content} 
+                  animate={animate} 
+                  speed={speed}
+                  onComplete={() => setCurrentBlockIndex(prev => prev + 1)}
+                />
+              ) : block.content
+            ) : ''}
+          </Box>
+        );
+      case 'blockquote':
+        return (
           <Box
+            key={index}
             component="blockquote"
             sx={{
               borderLeft: `4px solid ${theme.palette.primary.main}`,
@@ -172,15 +259,180 @@ const MarkdownContent = React.memo(({ content, animate = false }: { content: str
               color: 'text.secondary',
               fontStyle: 'italic',
             }}
-            {...props}
-          />
-        ),
-      }}
-    >
-      {content}
-    </ReactMarkdown>
-  );
-});
+          >
+            {isActive ? (
+              index === currentBlockIndex && animate ? (
+                <TypeWriter 
+                  content={block.content} 
+                  animate={animate} 
+                  speed={speed}
+                  onComplete={() => setCurrentBlockIndex(prev => prev + 1)}
+                />
+              ) : block.content
+            ) : ''}
+          </Box>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return <>{blocks.map((block, index) => renderBlock(block, index))}</>;
+};
+
+
+const parseMarkdownContent = (content: string): { type: string; content: string }[] => {
+  const lines = content.split('\n');
+  const blocks: { type: string; content: string }[] = [];
+  
+  let currentBlock: { type: string; content: string } | null = null;
+  
+  lines.forEach(line => {
+    const trimmedLine = line.trim();
+    
+
+    let blockType: string | null = null;
+    
+    if (trimmedLine.startsWith('# ')) {
+      blockType = 'heading1';
+    } else if (trimmedLine.startsWith('## ')) {
+      blockType = 'heading2';
+    } else if (trimmedLine.startsWith('### ')) {
+      blockType = 'heading3';
+    } else if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ') || /^\d+\.\s/.test(trimmedLine)) {
+      blockType = 'listItem';
+    } else if (trimmedLine.startsWith('> ')) {
+      blockType = 'blockquote';
+    } else if (trimmedLine.startsWith('```')) {
+      blockType = 'code';
+    } else if (trimmedLine.length > 0) {
+      blockType = 'paragraph';
+    }
+    
+
+    if (trimmedLine.length === 0) {
+      if (currentBlock) {
+        blocks.push(currentBlock);
+        currentBlock = null;
+      }
+    } else if (blockType) {
+
+      let cleanContent = trimmedLine;
+      if (blockType === 'heading1') cleanContent = trimmedLine.substring(2);
+      else if (blockType === 'heading2') cleanContent = trimmedLine.substring(3);
+      else if (blockType === 'heading3') cleanContent = trimmedLine.substring(4);
+      else if (blockType === 'blockquote') cleanContent = trimmedLine.substring(2);
+      else if (blockType === 'code' && trimmedLine === '```') {
+
+        if (currentBlock && currentBlock.type === 'code') {
+          blocks.push(currentBlock);
+          currentBlock = null;
+        }
+        return;
+      }
+      
+      if (currentBlock && currentBlock.type === blockType) {
+
+        currentBlock.content += '\n' + cleanContent;
+      } else {
+
+        if (currentBlock) blocks.push(currentBlock);
+        currentBlock = { type: blockType, content: cleanContent };
+      }
+    }
+  });
+  
+
+  if (currentBlock) {
+    blocks.push(currentBlock);
+  }
+  
+  return blocks;
+};
+
+const ContentDisplay = ({ content, animate = false }: { content: string; animate?: boolean }) => {
+  const theme = useTheme();
+  const [useSequentialTyping, setUseSequentialTyping] = useState(true);
+  
+
+  const blocks = parseMarkdownContent(content);
+  
+
+  if (blocks.length > 10 || content.includes('```') || content.includes('|')) {
+    return (
+      <ReactMarkdown
+        components={{
+          p: ({ node, ...props }) => (
+            <Typography variant="body1" gutterBottom {...props} />
+          ),
+          h1: ({ node, ...props }) => (
+            <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, mt: 2 }} {...props} />
+          ),
+          h2: ({ node, ...props }) => (
+            <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mt: 2 }} {...props} />
+          ),
+          h3: ({ node, ...props }) => (
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mt: 1.5 }} {...props} />
+          ),
+          ul: ({ node, ...props }) => <Box component="ul" sx={{ pl: 2, my: 1 }} {...props} />,
+          ol: ({ node, ...props }) => <Box component="ol" sx={{ pl: 2, my: 1 }} {...props} />,
+          li: ({ node, ...props }) => (
+            <Box component="li" sx={{ mb: 0.5 }} {...props} />
+          ),
+          code: ({ node, ...props }) => {
+            const isInline = props.className ? !props.className.includes('language-') : true;
+            
+            return isInline ? 
+              <Box 
+                component="code" 
+                sx={{ 
+                  backgroundColor: theme.palette.mode === 'dark' ? alpha('#000', 0.3) : alpha('#eee', 0.8),
+                  borderRadius: '4px',
+                  px: 0.5,
+                  py: 0.25,
+                  fontFamily: 'monospace',
+                }} 
+                {...props} 
+              /> : 
+              <Box
+                component="pre"
+                sx={{
+                  backgroundColor: theme.palette.mode === 'dark' ? alpha('#000', 0.3) : alpha('#eee', 0.8),
+                  borderRadius: '6px',
+                  p: 1.5,
+                  my: 1.5,
+                  overflowX: 'auto',
+                  fontFamily: 'monospace',
+                  fontSize: '0.875rem',
+                  border: `1px solid ${theme.palette.divider}`,
+                }}
+                {...props}
+              />
+          },
+          blockquote: ({ node, ...props }) => (
+            <Box
+              component="blockquote"
+              sx={{
+                borderLeft: `4px solid ${theme.palette.primary.main}`,
+                pl: 2,
+                py: 0.5,
+                my: 1,
+                color: 'text.secondary',
+                fontStyle: 'italic',
+              }}
+              {...props}
+            />
+          ),
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    );
+  }
+  
+
+  return <SequentialTypeWriter blocks={blocks} animate={animate} />;
+};
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -307,7 +559,10 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
           </Avatar>
           
           <Box sx={{ flexGrow: 1 }}>
-            <MarkdownContent content={message.content} animate={shouldAnimate} />
+            <ContentDisplay 
+              content={message.content} 
+              animate={shouldAnimate} 
+            />
 
             {hasSources && (
               <Box sx={{ mt: 2 }}>

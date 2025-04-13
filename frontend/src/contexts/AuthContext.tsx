@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { authService } from '../services';
+import { authService, apiService } from '../services';
 import { AuthState, LoginCredentials, RegisterData } from '../types';
 
 interface AuthContextType extends AuthState {
@@ -7,6 +7,7 @@ interface AuthContextType extends AuthState {
   register: (data: RegisterData) => Promise<void>;
   logout: () => void;
   clearError: () => void;
+  refreshAuth: () => Promise<boolean>;
 }
 
 const initialState: AuthState = {
@@ -24,6 +25,7 @@ const AuthContext = createContext<AuthContextType>({
   register: async () => {},
   logout: () => {},
   clearError: () => {},
+  refreshAuth: async () => false,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -35,6 +37,40 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [state, setState] = useState<AuthState>(initialState);
 
+  const refreshAuth = async (): Promise<boolean> => {
+    try {
+      const refreshToken = authService.getRefreshToken();
+      if (!refreshToken) {
+        throw new Error('No refresh token available');
+      }
+      
+      const response = await authService.refreshToken(refreshToken);
+      const accessToken = response.access_token;
+      
+      const user = authService.getUserFromLocalStorage();
+      
+      if (user && accessToken) {
+        authService.saveUserToLocalStorage(user, accessToken, refreshToken);
+        
+        setState({
+          user,
+          isAuthenticated: true,
+          isLoading: false,
+          error: null,
+          accessToken,
+          refreshToken,
+        });
+        
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Failed to refresh authentication:', error);
+      logout();
+      return false;
+    }
+  };
+
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -43,14 +79,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const refreshToken = authService.getRefreshToken();
 
         if (user && accessToken && refreshToken) {
-          setState({
-            user,
-            isAuthenticated: true,
-            isLoading: false,
-            error: null,
-            accessToken,
-            refreshToken,
-          });
+          try {
+            await authService.getProfile();
+            setState({
+              user,
+              isAuthenticated: true,
+              isLoading: false,
+              error: null,
+              accessToken,
+              refreshToken,
+            });
+          } catch (error) {
+            const refreshed = await refreshAuth();
+            if (!refreshed) {
+              setState({
+                ...initialState,
+                isLoading: false,
+              });
+            }
+          }
         } else {
           setState({
             ...initialState,
@@ -131,6 +178,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         register,
         logout,
         clearError,
+        refreshAuth,
       }}
     >
       {children}
