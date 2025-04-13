@@ -1,4 +1,3 @@
-
 import logging
 from typing import Dict, Any, Tuple
 
@@ -11,7 +10,6 @@ class SemanticRouterService:
     def __init__(self, llm_client):
         self.llm_client = llm_client
         
-
         self.classification_prompt_vi = """
         Bạn là một hệ thống phân loại truy vấn. Nhiệm vụ của bạn là xác định xem một truy vấn 
         có yêu cầu truy xuất thông tin từ kho kiến thức (RAG) hay chỉ là một cuộc trò chuyện thông thường (Chitchat).
@@ -50,17 +48,22 @@ class SemanticRouterService:
         
         try:
             prompt_template = self.classification_prompt_vi if language == "vi" else self.classification_prompt_en
-            
             prompt = prompt_template.format(query=query)
             
-            classification = self.llm_client.generate(
-                prompt=prompt,
-                temperature=0.1 
-            ).strip().lower()
+            try:
+
+                classification = self.llm_client.generate(
+                    prompt=prompt,
+                    temperature=0.1 
+                ).strip().lower()
+            except TypeError:
+
+                classification = self.llm_client.generate(
+                    prompt=prompt
+                ).strip().lower()
             
             logger.info(f"Query classification: '{query}' -> '{classification}'")
             
-
             if "rag" in classification:
                 return "admission_query", {
                     "query": query,

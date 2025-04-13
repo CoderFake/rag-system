@@ -1,4 +1,3 @@
-// User types
 export interface User {
   id: number;
   username: string;
@@ -30,7 +29,6 @@ export interface RegisterData {
   email?: string;
 }
 
-// Chat types
 export interface ChatMessage {
   id: string;
   type: 'query' | 'response';
@@ -100,16 +98,16 @@ export interface DocumentsResponse {
   limit: number;
 }
 
-// Settings types
 export interface Settings {
   chunk_size: number;
   chunk_overlap: number;
   embedding_model: string;
+  llm_provider: 'gemini' | 'ollama'; 
+  ollama_base_url?: string;
+  ollama_model_name?: string; 
   supported_languages: string[];
 }
 
-// Theme types
 export type ThemeMode = 'light' | 'dark';
 
-// Language types
 export type Language = 'en' | 'vi';

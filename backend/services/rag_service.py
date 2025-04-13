@@ -1,4 +1,3 @@
-
 from langchain.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
 from langchain.schema.runnable import RunnablePassthrough, RunnableLambda
@@ -75,21 +74,29 @@ class RAGService:
                         "source_documents": []
                     }
             
+            try:
+                formatted_context = self.format_documents(relevant_docs)
+                prompt = self.prompt_templates[language].format(
+                    question=query,
+                    context=formatted_context
+                )
+                
+                response_text = self.llm_client.generate(prompt=prompt)
+                
+                logger.info(f"Generated RAG response for query: {query}")
+                
+                return {
+                    "response": response_text,
+                    "source_documents": relevant_docs
+                }
+            except Exception as e:
+                logger.error(f"Error in RAG chain: {str(e)}")
+                
 
-            rag_chain = (
-                {"context": retriever, "question": RunnablePassthrough()}
-                | self.prompt_templates[language]
-                | self.llm_client.llm
-            )
-            
-            response = rag_chain.invoke(query)
-            
-            logger.info(f"Generated RAG response for query: {query}")
-            
-            return {
-                "response": response,
-                "source_documents": relevant_docs
-            }
+                return {
+                    "response": self.enhance_with_context(query, relevant_docs, language),
+                    "source_documents": relevant_docs
+                }
             
         except Exception as e:
             logger.error(f"Error in RAG processing: {str(e)}")

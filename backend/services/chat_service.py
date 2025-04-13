@@ -1,20 +1,36 @@
 import time
 import logging
+import time
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime
+
+# Models
 from models.query import Query
 from models.response import Response
+
+# Config
+from backend.config.settings import Config
+
+# LLM Clients
+from backend.llm.gemini_client import GeminiClient 
+from backend.llm.ollama_client import OllamaClient
 
 logger = logging.getLogger(__name__)
 
 class ChatService:
-    def __init__(self, semantic_router, reflection_service, rag_service, llm_client, db_manager=None):
+    def __init__(self, semantic_router, reflection_service, rag_service, db_manager=None):
         self.semantic_router = semantic_router
         self.reflection_service = reflection_service
         self.rag_service = rag_service
-        self.llm_client = llm_client
         self.db_manager = db_manager
         
+        if Config.LLM_PROVIDER == 'ollama':
+            self.llm_client = OllamaClient()
+        else:
+            self.llm_client = GeminiClient() 
+            if not Config.GEMINI_API_KEY:
+                 logger.warning("Không tồn tại Gemini API KEY")
+
     def process_query(self, query_text: str, session_id: str = None, user_id: Optional[int] = None, language: str = "vi") -> Dict[str, Any]:
         
         start_time = time.time()
@@ -62,10 +78,13 @@ class ChatService:
             else:
 
                 system_prompt = f"Bạn là trợ lý AI hữu ích trả lời bằng {'tiếng Việt' if language == 'vi' else 'English'}."
-                chatbot_response = self.llm_client.generate(
-                    prompt=query_text,
-                    system_prompt=system_prompt
-                )
+                if Config.LLM_PROVIDER == 'ollama':
+                    chatbot_response = self.llm_client.generate_response(prompt=enhanced_query) 
+                else: 
+                    chatbot_response = self.llm_client.generate(
+                        prompt=enhanced_query, 
+                        system_prompt=system_prompt
+                    )
                 
                 response = Response(
                     query_id=query.id,

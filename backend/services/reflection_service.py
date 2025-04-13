@@ -1,4 +1,3 @@
-
 import logging
 from typing import Dict, Any
 
@@ -45,26 +44,25 @@ class ReflectionService:
             return query
             
         try:
-
             prompt_template = self.reflection_prompt_vi if language == "vi" else self.reflection_prompt_en
-            
-
             prompt = prompt_template.format(query=query)
-            
 
-            enhanced_query = self.llm_client.generate(
-                prompt=prompt,
-                temperature=0.3
-            )
-            
+            try:
+                enhanced_query = self.llm_client.generate(
+                    prompt=prompt,
+                    temperature=0.3
+                )
+            except TypeError:
+
+                enhanced_query = self.llm_client.generate(
+                    prompt=prompt
+                )
             if len(enhanced_query) > len(query) * 3:
-
                 logger.warning("Enhanced query too long, using original query")
                 return query
                 
             logger.info(f"Enhanced query: {enhanced_query}")
             return enhanced_query
-            
         except Exception as e:
             logger.error(f"Error in query enhancement: {str(e)}")
 

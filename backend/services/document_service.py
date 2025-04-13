@@ -45,14 +45,23 @@ class DocumentService:
             loader = loader_class(tmp_path)
             documents = loader.load()
             
+            tags_list = metadata.get("tags", [])
+            tags_string = ", ".join(tags_list) if tags_list else ""
+            
+            doc_id = metadata.get("id", str(uuid.uuid4()))
+            metadata["id"] = doc_id
+            
+            chroma_metadata = metadata.copy()
+            if "tags" in chroma_metadata:
+                chroma_metadata["tags_str"] = tags_string
+                del chroma_metadata["tags"]
+                    
             if metadata:
                 for doc in documents:
                     if not isinstance(doc.metadata, dict):
                         doc.metadata = {}
-                    doc.metadata.update(metadata)
-                    
-            doc_id = metadata.get("id", str(uuid.uuid4()))
-            metadata["id"] = doc_id
+
+                    doc.metadata.update(chroma_metadata)
                     
             chunked_docs = []
             for doc in documents:
@@ -70,7 +79,7 @@ class DocumentService:
                     file_path=tmp_path, 
                     file_type=file_ext,
                     category=metadata.get("category", "general"),
-                    tags=metadata.get("tags", []),
+                    tags=tags_list, 
                     user_id=metadata.get("user_id")
                 )
                 
@@ -113,11 +122,7 @@ class DocumentService:
                 logger.error(f"Lỗi khi xoá tài liệu từ database: {str(e)}")
                 success = False
         
-        # TODO: Xoá từ vector store
-
         return success
         
     def reindex_all(self):
-        # TODO: Triển khai logic đánh chỉ mục lại
-        # Hiện tại chỉ trả về giá trị giả
         return True

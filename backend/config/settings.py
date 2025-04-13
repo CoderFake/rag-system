@@ -24,7 +24,7 @@ class Config:
     JWT_REFRESH_TOKEN_EXPIRES = int(os.getenv("JWT_REFRESH_TOKEN_EXPIRES", "604800"))
     
     # MySQL
-    MYSQL_HOST = os.getenv("MYSQL_HOST", "localhost")
+    MYSQL_HOST = os.getenv("MYSQL_HOST", "ollama")
     MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
     MYSQL_USER = os.getenv("MYSQL_USER", "root")
     MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
@@ -32,7 +32,14 @@ class Config:
     
     # Embedding Model
     EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+
+    # LLM Provider
+    LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama")
+    
+    # Ollama Settings
+    OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")
+    OLLAMA_MODEL_NAME = os.getenv("OLLAMA_MODEL_NAME", "qwen2:1.5b-instruct-q8_0")
     
     # Upload
     UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", "./uploads")
-    MAX_CONTENT_LENGTH = int(os.getenv("MAX_CONTENT_LENGTH", "16777216"))
+    MAX_CONTENT_LENGTH = int(os.getenv("MAX_CONTENT_LENGTH", "104857600"))

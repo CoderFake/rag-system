@@ -3,13 +3,16 @@ import { Settings } from '../types';
 
 class SettingsService {
   async getSettings(): Promise<Settings> {
-    const response = await apiService.get<Settings>('/settings');
+    // Corrected endpoint path
+    const response = await apiService.get<Settings>('/admin/settings'); 
     return response.data;
   }
 
-  async updateSettings(settings: Partial<Settings>): Promise<{ success: boolean }> {
-    const response = await apiService.post<{ success: boolean }>('/settings', settings);
-    return response.data;
+  // Update return type to include optional message
+  async updateSettings(settings: Partial<Settings>): Promise<{ success: boolean; message?: string }> {
+    // Corrected endpoint path and removed duplicate variable declaration
+    const updateResponse = await apiService.put<{ success: boolean; message?: string }>('/admin/settings', settings); 
+    return updateResponse.data;
   }
 
   getLanguage(): string {

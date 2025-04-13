@@ -22,12 +22,21 @@ class GeminiClient:
             
         messages.append(HumanMessage(content=prompt))
         
-        if temperature is not None:
-            response = self.llm.generate([messages], temperature=temperature)
-        else:
-            response = self.llm.generate([messages])
-            
-        return response.generations[0][0].text
+
+        try:
+            if temperature is not None:
+                response = self.llm.generate([messages], temperature=temperature)
+            else:
+                response = self.llm.generate([messages])
+                
+            return response.generations[0][0].text
+        except TypeError as e:
+            if "unexpected keyword argument 'temperature'" in str(e):
+
+                response = self.llm.generate([messages])
+                return response.generations[0][0].text
+            else:
+                raise e
         
     def classify_query(self, query):
         system_prompt = """
@@ -36,11 +45,17 @@ class GeminiClient:
         Respond with ONLY 'RAG' or 'Chitchat'.
         """
         
-        result = self.generate(
-            prompt=query,
-            system_prompt=system_prompt,
-            temperature=0.1
-        ).strip().lower()
+        try:
+            result = self.generate(
+                prompt=query,
+                system_prompt=system_prompt,
+                temperature=0.1
+            ).strip().lower()
+        except:
+            result = self.generate(
+                prompt=query,
+                system_prompt=system_prompt
+            ).strip().lower()
         
         if "rag" in result:
             return "RAG"

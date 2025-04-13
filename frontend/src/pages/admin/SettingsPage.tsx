@@ -17,6 +17,7 @@ import {
   SelectChangeEvent,
   Divider,
   Stack,
+  useTheme,
 } from '@mui/material';
 import { Save as SaveIcon } from '@mui/icons-material';
 import { settingsService } from '../../services';
@@ -26,14 +27,16 @@ import { Settings } from '../../types';
 const SettingsPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const theme = useTheme(); 
   const { isAuthenticated, user } = useAuth();
   const [settings, setSettings] = useState<Settings>({
     chunk_size: 1000,
     chunk_overlap: 200,
     embedding_model: 'text-embedding-ada-002',
+    llm_provider: 'gemini',
     supported_languages: ['vi', 'en'],
   });
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); 
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -80,6 +83,10 @@ const SettingsPage: React.FC = () => {
     setSettings({ ...settings, embedding_model: e.target.value });
   };
 
+  const handleLlmProviderChange = (e: SelectChangeEvent<'gemini' | 'ollama'>) => {
+    setSettings({ ...settings, llm_provider: e.target.value as 'gemini' | 'ollama' });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
@@ -87,14 +94,16 @@ const SettingsPage: React.FC = () => {
     setSuccess(null);
 
     try {
-      const result = await settingsService.updateSettings({
+      const settingsToUpdate: Partial<Settings> = {
         chunk_size: settings.chunk_size,
         chunk_overlap: settings.chunk_overlap,
         embedding_model: settings.embedding_model,
-      });
+        llm_provider: settings.llm_provider,
+      };
 
+      const result = await settingsService.updateSettings(settingsToUpdate);
       if (result.success) {
-        setSuccess(t('admin.settings.save.success'));
+        setSuccess(result.message || t('admin.settings.save.success'));
       } else {
         setError(t('admin.settings.save.error'));
       }
@@ -166,8 +175,39 @@ const SettingsPage: React.FC = () => {
                     <MenuItem value="text-embedding-ada-002">OpenAI Ada 002</MenuItem>
                     <MenuItem value="text-embedding-3-small">OpenAI Embedding 3 Small</MenuItem>
                     <MenuItem value="text-embedding-3-large">OpenAI Embedding 3 Large</MenuItem>
+                    {/* Add other embedding models if available */}
                   </Select>
                 </FormControl>
+
+                <Divider sx={{ pt: 2 }} />
+                <Typography variant="h6" sx={{ mb: -1 }}>{t('admin.settings.llm_provider.title', 'LLM Provider')}</Typography>
+
+                <FormControl fullWidth disabled={isSaving}>
+                  <InputLabel>{t('admin.settings.llm_provider.label', 'Chat Response Model')}</InputLabel>
+                  <Select
+                    value={settings.llm_provider}
+                    label={t('admin.settings.llm_provider.label', 'Chat Response Model')}
+                    onChange={handleLlmProviderChange}
+                  >
+                    <MenuItem value="gemini">Gemini (Cloud API)</MenuItem>
+                    <MenuItem value="ollama">Ollama (Local)</MenuItem>
+                  </Select>
+                </FormControl>
+
+                 {/* Optionally display Ollama settings (read-only for now) */}
+                 {settings.llm_provider === 'ollama' && (
+                   <Stack spacing={1} sx={{ pl: 1, borderLeft: `2px solid ${theme.palette.divider}`, ml: 1 }}>
+                     <Typography variant="body2" color="text.secondary">
+                       Ollama Base URL: {settings.ollama_base_url || 'N/A'}
+                     </Typography>
+                     <Typography variant="body2" color="text.secondary">
+                       Ollama Model: {settings.ollama_model_name || 'N/A'}
+                     </Typography>
+                     <Typography variant="caption" color="text.secondary">
+                       {t('admin.settings.ollama.info', 'These settings are configured in the backend .env file.')}
+                     </Typography>
+                   </Stack>
+                 )}
                 
                 <Box>
                   <Divider sx={{ my: 2 }} />
