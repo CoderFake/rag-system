@@ -12,7 +12,7 @@ class GeminiClient:
         genai.configure(api_key=api_key)
         
         self.llm = ChatGoogleGenerativeAI(
-            model="gemini-1.5-pro", 
+            model="gemini-2.0-flash", 
             google_api_key=api_key,
             temperature=0.7,
             max_output_tokens=2048
@@ -20,7 +20,7 @@ class GeminiClient:
         
         try:
             self.genai_model = genai.GenerativeModel(
-                model_name="gemini-1.5-pro",
+                model_name="gemini-2.0-flash",
                 generation_config={
                     "temperature": 0.7,
                     "max_output_tokens": 2048,

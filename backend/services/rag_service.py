@@ -10,22 +10,35 @@ class RAGService:
         self.chroma_manager = chroma_manager
         self.llm_client = llm_client
         
+
         self.prompt_templates = {
-            "vi": """Câu hỏi: {question}
+            "vi": """
+            Câu hỏi: {question}
 
             Thông tin tham khảo:
             {context}
 
-            Trả lời ngắn gọn dựa trên thông tin trên. Nếu không có thông tin liên quan, nói "Tôi không tìm thấy thông tin về vấn đề này."
+            Hãy trả lời câu hỏi trên bằng tiếng Việt dựa trên thông tin tham khảo. 
+            Trả lời phải bằng tiếng Việt, ngắn gọn và dễ hiểu.
+            Nếu không có thông tin liên quan, trả lời bằng tiếng Việt: "Tôi không tìm thấy thông tin về vấn đề này trong dữ liệu đã cung cấp."
             """,
 
-            "en": """Question: {question}
+            "en": """
+            Question: {question}
 
             Reference information:
             {context}
 
-            Answer concisely based on the information above. If no relevant information is found, say "I couldn't find information about this topic."
+            Please answer the question in English based on the provided information.
+            Keep your answer in English, concise and understandable.
+            If no relevant information is found, respond in English: "I couldn't find information about this topic in the provided data."
             """
+        }
+        
+
+        self.system_prompts = {
+            "vi": "Bạn là trợ lý AI chuyên trả lời các câu hỏi bằng tiếng Việt. Luôn sử dụng tiếng Việt trong câu trả lời của bạn, ngay cả khi thông tin tham khảo bằng ngôn ngữ khác.",
+            "en": "You are an AI assistant specialized in answering questions in English. Always use English in your responses, even if the reference information is in another language."
         }
     
     def _truncate_text(self, text: str, max_length: int = 1000) -> str:
@@ -42,12 +55,14 @@ class RAGService:
             sorted_docs = sorted(docs, key=lambda x: x.metadata.get('score', 0), reverse=True)
             return sorted_docs[:max_chunks]
             
+
         return docs[:max_chunks]
     
     def format_documents(self, docs: List[Document], max_length_per_doc: int = 300) -> str:
         formatted_texts = []
         
         for i, doc in enumerate(docs):
+
             source_info = ""
             if hasattr(doc, 'metadata'):
                 title = doc.metadata.get('title', f'Document {i+1}')
@@ -55,7 +70,10 @@ class RAGService:
             else:
                 source_info = f"[Document {i+1}]"
                 
+
             content = self._truncate_text(doc.page_content, max_length_per_doc)
+            
+
             formatted_texts.append(f"{source_info}\n{content}")
             
         return "\n\n".join(formatted_texts)
@@ -79,13 +97,60 @@ class RAGService:
                     
         return valid_sources
     
+    def _ensure_vietnamese_response(self, response: str) -> str:
+
+        en_vi_markers = {
+            "I couldn't find": "Tôi không tìm thấy",
+            "I don't have": "Tôi không có",
+            "Based on the information": "Dựa trên thông tin",
+            "According to the": "Theo",
+            "Sorry": "Xin lỗi",
+            "Please": "Vui lòng",
+            "The information": "Thông tin",
+            "Thank you": "Cảm ơn",
+            "There is no": "Không có"
+        }
+        
+        english_markers = ["the", "is", "are", "was", "were", "to", "for", "in", "on", "at", "by", "with", "information"]
+        english_count = sum(1 for marker in english_markers if f" {marker} " in f" {response.lower()} ")
+
+        if english_count >= 3 or any(marker in response for marker in en_vi_markers.keys()):
+            try:
+
+                translate_prompt = f"""
+                Dịch văn bản sau từ tiếng Anh sang tiếng Việt:
+                
+                "{response}"
+                
+                Chỉ trả về bản dịch tiếng Việt, không thêm chú thích.
+                """
+                
+                translated = self.llm_client.generate(
+                    prompt=translate_prompt,
+                    system_prompt="Bạn là chuyên gia dịch thuật Anh-Việt. Dịch chính xác và tự nhiên."
+                )
+                
+                logger.info("Đã dịch phản hồi từ tiếng Anh sang tiếng Việt")
+                return translated
+            except Exception as e:
+                logger.error(f"Lỗi khi dịch: {str(e)}")
+                
+
+                for en, vi in en_vi_markers.items():
+                    response = response.replace(en, vi)
+                
+                return response
+                
+        return response
+    
     def process_query(self, query: str, language: str = "vi") -> Dict[str, Any]:
+        """Xử lý truy vấn để trả về kết quả từ kho kiến thức"""
         if language not in self.prompt_templates:
             language = "vi"
             
-        logger.info(f"Processing RAG query with languge: {query}", language)
-        
+        logger.info(f"Processing RAG query: {query}")
         try:
+
             retriever = self.chroma_manager.vector_store.as_retriever(
                 search_type="similarity",
                 search_kwargs={"k": 5}  
@@ -112,7 +177,6 @@ class RAGService:
                     }
             
             valid_sources = self._extract_valid_document_ids(relevant_docs)
-            
             logger.info(f"Found {len(relevant_docs)} documents, {len(valid_sources)} have valid IDs")
             
             try:
@@ -124,28 +188,39 @@ class RAGService:
                     context=formatted_context
                 )
                 
+                system_prompt = self.system_prompts[language]
                 logger.debug(f"Prompt size: {len(prompt)} characters")
                 
-                response_text = self.llm_client.generate(prompt=prompt)
+                response_text = self.llm_client.generate(
+                    prompt=prompt,
+                    system_prompt=system_prompt
+                )
+                
+                if language == "vi":
+                    response_text = self._ensure_vietnamese_response(response_text)
                 
                 logger.info(f"Generated RAG response for query: {query}")
                 
                 return {
                     "response": response_text,
-                    "source_documents": valid_sources  
+                    "source_documents": valid_sources 
                 }
             except Exception as e:
                 logger.error(f"Error in RAG chain: {str(e)}")
                 
+                response_text = self.fallback_response(query, relevant_docs, language)
+                
+                if language == "vi":
+                    response_text = self._ensure_vietnamese_response(response_text)
+                
                 return {
-                    "response": self.fallback_response(query, relevant_docs, language),
+                    "response": response_text,
                     "source_documents": valid_sources
                 }
             
         except Exception as e:
             logger.error(f"Error in RAG processing: {str(e)}")
             
-
             if language == "vi":
                 error_message = f"Đã xảy ra lỗi khi xử lý truy vấn: {str(e)}"
             else:
@@ -160,15 +235,22 @@ class RAGService:
 
         minimal_docs = self._select_best_chunks(context_docs, max_chunks=2)
         minimal_context = self.format_documents(minimal_docs, max_length_per_doc=200)
-    
+        
         if language == "vi":
-            prompt = f"Câu hỏi: {query}\nThông tin: {minimal_context}\nTrả lời:"
+            prompt = f"Câu hỏi: {query}\nThông tin: {minimal_context}\n\nHãy trả lời bằng tiếng Việt:"
+            system_prompt = "Bạn là trợ lý AI trả lời bằng tiếng Việt. Luôn sử dụng tiếng Việt không dùng tiếng Anh."
         else:
-            prompt = f"Question: {query}\nInformation: {minimal_context}\nAnswer:"
+            prompt = f"Question: {query}\nInformation: {minimal_context}\n\nAnswer in English:"
+            system_prompt = "You are an AI assistant responding in English."
         
         try:
-            return self.llm_client.generate(prompt=prompt)
+            response = self.llm_client.generate(prompt=prompt, system_prompt=system_prompt)
+
+            if language == "vi":
+                response = self._ensure_vietnamese_response(response)
+            return response
         except Exception as e:
+
             logger.error(f"Fallback response failed: {str(e)}")
             if language == "vi":
                 return "Tôi gặp khó khăn khi trả lời câu hỏi này dựa trên thông tin có sẵn."
