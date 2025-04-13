@@ -41,10 +41,61 @@ class DocumentService:
         try:
             logger.info(f"Bắt đầu xử lý file: {filename}")
             
+
             loader_class = self.loaders[file_ext]
             loader = loader_class(tmp_path)
-            documents = loader.load()
             
+            try:
+                documents = loader.load()
+                logger.info(f"Đã tải thành công file, số lượng trang/phần: {len(documents)}")
+            except Exception as load_error:
+                logger.error(f"Lỗi khi tải file: {str(load_error)}")
+
+                if file_ext == '.pdf':
+                    logger.info("Thử lại với phương pháp trích xuất PDF khác")
+                    from langchain_community.document_loaders import UnstructuredPDFLoader
+                    try:
+                        loader = UnstructuredPDFLoader(tmp_path)
+                        documents = loader.load()
+                        logger.info(f"Đã tải thành công file với UnstructuredPDFLoader: {len(documents)} phần")
+                    except Exception as e:
+                        logger.error(f"Vẫn không thể tải PDF: {str(e)}")
+                        raise ValueError(f"Không thể đọc file PDF: {str(e)}")
+                else:
+                    raise
+            
+
+            if not documents or len(documents) == 0:
+                logger.warning(f"Không có trang/phần nào được tải từ file {filename}, thử phương pháp khác")
+
+                try:
+                    with open(tmp_path, 'rb') as file_content:
+                        content = file_content.read()
+                        
+
+                    if file_ext == '.pdf':
+                        import pdfplumber
+                        text_content = ""
+                        with pdfplumber.open(tmp_path) as pdf:
+                            for page in pdf.pages:
+                                text = page.extract_text() or ""
+                                text_content += text + "\n\n"
+                        
+                        if text_content.strip():
+                            from langchain.schema import Document as LangchainDocument
+                            documents = [LangchainDocument(page_content=text_content, metadata={})]
+                            logger.info(f"Đã trích xuất text từ PDF với pdfplumber: {len(text_content)} ký tự")
+                        else:
+                            logger.warning("Không thể trích xuất text từ PDF")
+                except Exception as e:
+                    logger.error(f"Lỗi khi đọc file như text: {str(e)}")
+                    raise ValueError(f"Không thể đọc nội dung file: {str(e)}")
+            
+            if not documents or len(documents) == 0:
+                logger.error(f"Không thể trích xuất bất kỳ nội dung nào từ file {filename}")
+                raise ValueError("Không thể trích xuất nội dung từ file này")
+            
+
             tags_list = metadata.get("tags", [])
             tags_string = ", ".join(tags_list) if tags_list else ""
             
@@ -60,16 +111,34 @@ class DocumentService:
                 for doc in documents:
                     if not isinstance(doc.metadata, dict):
                         doc.metadata = {}
-
                     doc.metadata.update(chroma_metadata)
-                    
+            
+
+            for i, doc in enumerate(documents[:2]): 
+                content_preview = doc.page_content[:200] + "..." if len(doc.page_content) > 200 else doc.page_content
+                logger.debug(f"Tài liệu {i+1} có nội dung: {content_preview}")
+                
             chunked_docs = []
             for doc in documents:
+
+                if not doc.page_content or len(doc.page_content.strip()) == 0:
+                    logger.warning("Bỏ qua trang/phần không có nội dung")
+                    continue
+                    
                 chunks = self.chroma_manager.chunk_document(doc.page_content, doc.metadata)
-                chunked_docs.extend(chunks)
-                
-            self.chroma_manager.add_documents(chunked_docs)
+                if chunks and len(chunks) > 0:
+                    chunked_docs.extend(chunks)
+                    logger.info(f"Chia thành {len(chunks)} đoạn")
+                else:
+                    logger.warning(f"Không thể chia được đoạn nào từ trang/phần có {len(doc.page_content)} ký tự")
             
+            if chunked_docs and len(chunked_docs) > 0:
+                self.chroma_manager.add_documents(chunked_docs)
+            else:
+                logger.error("Không có đoạn văn nào để thêm vào ChromaDB")
+                raise ValueError("Không thể chia tài liệu thành các đoạn hợp lệ")
+            
+
             if self.db_manager and hasattr(self.db_manager, 'save_document'):
                 from models.document import Document
                 
@@ -99,30 +168,7 @@ class DocumentService:
             raise
         finally:
             if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
-                
-    def get_all_documents(self, page=1, limit=10, category=None):
-        if not self.db_manager or not hasattr(self.db_manager, 'get_all_documents'):
-            logger.warning("Không có db_manager hoặc phương thức get_all_documents")
-            return []
-            
-        try:
-            return self.db_manager.get_all_documents(page, limit, category)
-        except Exception as e:
-            logger.error(f"Lỗi khi lấy danh sách tài liệu: {str(e)}")
-            return []
-            
-    def delete_document(self, document_id):
-        success = False
-
-        if self.db_manager and hasattr(self.db_manager, 'delete_document'):
-            try:
-                success = self.db_manager.delete_document(document_id)
-            except Exception as e:
-                logger.error(f"Lỗi khi xoá tài liệu từ database: {str(e)}")
-                success = False
-        
-        return success
-        
-    def reindex_all(self):
-        return True
+                try:
+                    os.unlink(tmp_path)
+                except:
+                    pass

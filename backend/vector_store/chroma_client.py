@@ -5,6 +5,7 @@ import chromadb
 import logging
 import os
 import time
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -44,12 +45,14 @@ class ChromaManager:
                     embedding_function=self.embeddings,
                     client=self.client
                 )
-            
+
             self.text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=512,
-                chunk_overlap=50,
-                length_function=len,
-                is_separator_regex=False
+                chunk_size=500,                    
+                chunk_overlap=100,                 
+                length_function=len,                
+                separators=["\n\n", "\n", ". ", " ", ""], 
+                keep_separator=True,             
+                is_separator_regex=False       
             )
             
             logger.info(f"ChromaManager khởi tạo thành công với mô hình: {embedding_model}")
@@ -60,10 +63,45 @@ class ChromaManager:
         
     def add_documents(self, documents, metadatas=None):
         try:
-            texts = [doc.page_content for doc in documents]
-            metadata_list = [doc.metadata for doc in documents] if not metadatas else metadatas
+            if not documents or len(documents) == 0:
+                logger.warning("Không có tài liệu nào để thêm vào ChromaDB")
+                return []
+                
+
+            total_chars = sum(len(doc.page_content) for doc in documents)
+            logger.info(f"Chuẩn bị thêm {len(documents)} tài liệu với tổng {total_chars} ký tự")
             
-            result = self.vector_store.add_texts(texts=texts, metadatas=metadata_list)
+
+            valid_docs = []
+            for doc in documents:
+                if not doc.page_content or len(doc.page_content.strip()) == 0:
+                    logger.warning("Bỏ qua tài liệu trống")
+                    continue
+                valid_docs.append(doc)
+                
+            if len(valid_docs) == 0:
+                logger.warning("Không có tài liệu hợp lệ nào để thêm vào ChromaDB")
+                return []
+                
+            texts = [doc.page_content for doc in valid_docs]
+            metadata_list = [doc.metadata for doc in valid_docs] if not metadatas else metadatas
+            
+
+            ids = []
+            for i, doc in enumerate(valid_docs):
+                if hasattr(doc, 'metadata') and doc.metadata and 'id' in doc.metadata:
+                    doc_id = doc.metadata['id']
+                else:
+                    doc_id = str(uuid.uuid4())
+                ids.append(doc_id)
+            
+
+            logger.debug(f"Các ID mẫu: {ids[:3] if len(ids) > 3 else ids}")
+            
+            avg_length = sum(len(t) for t in texts) / len(texts) if texts else 0
+            logger.info(f"Độ dài trung bình của text: {avg_length:.1f} ký tự")
+            
+            result = self.vector_store.add_texts(texts=texts, metadatas=metadata_list, ids=ids)
             logger.info(f"Đã thêm {len(texts)} tài liệu vào ChromaDB")
             return result
         except Exception as e:
@@ -72,12 +110,34 @@ class ChromaManager:
         
     def chunk_document(self, text, metadata=None):
         try:
+            if not text or len(text.strip()) == 0:
+                logger.warning("Cố gắng chia tài liệu trống")
+                return []
+                
+            logger.debug(f"Chia tài liệu có độ dài {len(text)} ký tự")
+            
+            text = text.replace('\x00', ' ') 
+            text = text.replace('. ', '.\n')  
             chunks = self.text_splitter.create_documents([text], [metadata] if metadata else None)
-            logger.debug(f"Đã chia tài liệu thành {len(chunks)} chunks")
+            
+            if not chunks or len(chunks) == 0:
+                logger.warning(f"Không thể chia tài liệu thành chunks")
+
+                from langchain.text_splitter import CharacterTextSplitter
+                simple_splitter = CharacterTextSplitter(
+                    chunk_size=500,
+                    chunk_overlap=0,
+                    separator="\n"
+                )
+                chunks = simple_splitter.create_documents([text], [metadata] if metadata else None)
+                
+            logger.info(f"Đã chia tài liệu thành {len(chunks)} chunks")
             return chunks
         except Exception as e:
             logger.error(f"Lỗi khi chia tài liệu thành chunks: {str(e)}")
-            raise
+
+            from langchain.schema import Document as LangchainDocument
+            return [LangchainDocument(page_content=text, metadata=metadata or {})]
         
     def similarity_search(self, query, k=5):
         try:

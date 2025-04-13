@@ -33,6 +33,7 @@ class ApiService {
           try {
             const refreshToken = localStorage.getItem('refreshToken');
             if (!refreshToken) {
+              this.clearAuthData();
               throw new Error('No refresh token available');
             }
             
@@ -40,22 +41,35 @@ class ApiService {
               refresh_token: refreshToken,
             });
             
+            if (!response.data || !response.data.access_token) {
+              this.clearAuthData();
+              throw new Error('Invalid refresh token response');
+            }
+            
             const { access_token } = response.data;
             localStorage.setItem('accessToken', access_token);
             
             originalRequest.headers.Authorization = `Bearer ${access_token}`;
             return this.api(originalRequest);
           } catch (refreshError) {
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
-            localStorage.removeItem('user');
-            window.location.href = '/login';
+            this.clearAuthData();
             return Promise.reject(refreshError);
           }
         }
         return Promise.reject(error);
       }
     );
+  }
+
+  public clearAuthData(): void {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    // window.location.href = '/login';
+  }
+
+  public clearTokens(): void {
+    delete this.api.defaults.headers.common['Authorization'];
   }
 
   public async get<T = any>(

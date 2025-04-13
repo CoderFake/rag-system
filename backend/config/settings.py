@@ -34,7 +34,7 @@ class Config:
     EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 
     # LLM Provider
-    LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama")
+    LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini")
     
     # Ollama Settings
     OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")

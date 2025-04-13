@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 import os
 import logging
 from dotenv import dotenv_values, set_key 
-from backend.config.settings import Config
+from config.settings import Config
 
 
 logging.basicConfig(level=logging.INFO)

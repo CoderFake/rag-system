@@ -71,7 +71,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
 
   const isXsScreen = useMediaQuery(theme.breakpoints.down('sm'));
-  const isMdScreen = useMediaQuery(theme.breakpoints.down('md')); 
 
   const isAdmin = user?.role === 'admin';
 

@@ -63,6 +63,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         return true;
       }
+      logout();
       return false;
     } catch (error) {
       console.error('Failed to refresh authentication:', error);
@@ -90,6 +91,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               refreshToken,
             });
           } catch (error) {
+            console.log('Token hiện tại không hợp lệ, thử refresh token');
+
             const refreshed = await refreshAuth();
             if (!refreshed) {
               setState({
@@ -105,6 +108,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           });
         }
       } catch (error) {
+        console.error('Error initializing auth:', error);
         setState({
           ...initialState,
           isLoading: false,
@@ -156,6 +160,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = () => {
     authService.logout();
+    apiService.clearTokens();
+    
     setState({
       user: null,
       isAuthenticated: false,
