@@ -38,6 +38,10 @@ CORS(app)
 app.json_encoder = CustomJSONEncoder
 app.config.from_object(Config)
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 from llm.gemini_client import GeminiClient
 from llm.ollama_client import OllamaClient
 from vector_store.chroma_client import ChromaManager
@@ -251,20 +255,53 @@ def get_documents():
         limit = int(request.args.get("limit", 10))
         category = request.args.get("category")
         
-        documents = document_service.get_all_documents(
-            page=page,
-            limit=limit,
-            category=category
-        )
+        logger.info(f"Đang lấy tài liệu: page={page}, limit={limit}, category={category}")
         
-        return jsonify({
-            "documents": documents,
-            "total": len(documents),
-            "page": page,
-            "limit": limit
-        })
+        try:
+            documents = document_service.get_all_documents(
+                page=page,
+                limit=limit,
+                category=category
+            )
+            
+            clean_documents = []
+            for doc in documents:
+                if isinstance(doc, dict):
+                    doc_copy = doc.copy()
+                    for key, value in doc.items():
+                        if hasattr(value, 'isoformat'):  
+                            doc_copy[key] = value.isoformat()
+                    clean_documents.append(doc_copy)
+                else:
+                    if hasattr(doc, 'to_dict'):
+                        clean_documents.append(doc.to_dict())
+            
+            logger.info(f"Đã lấy {len(clean_documents)} tài liệu")
+            
+            return jsonify({
+                "documents": clean_documents,
+                "total": len(clean_documents),
+                "page": page,
+                "limit": limit
+            })
+        except Exception as doc_error:
+            logger.error(f"Lỗi khi xử lý tài liệu: {str(doc_error)}")
+            return jsonify({
+                "documents": [],
+                "total": 0,
+                "page": page,
+                "limit": limit,
+                "error_detail": str(doc_error)
+            })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Lỗi chung khi lấy tài liệu: {str(e)}")
+        return jsonify({
+            "documents": [],
+            "total": 0,
+            "page": 1,
+            "limit": 10,
+            "error": str(e)
+        }), 200  
 
 @app.route("/api/admin/documents/<document_id>", methods=["DELETE"])
 @admin_required

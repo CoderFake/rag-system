@@ -47,8 +47,8 @@ class ChromaManager:
                 )
 
             self.text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=500,                    
-                chunk_overlap=100,                 
+                chunk_size=1000,              
+                chunk_overlap=200,         
                 length_function=len,                
                 separators=["\n\n", "\n", ". ", " ", ""], 
                 keep_separator=True,             
@@ -66,12 +66,10 @@ class ChromaManager:
             if not documents or len(documents) == 0:
                 logger.warning("Không có tài liệu nào để thêm vào ChromaDB")
                 return []
-                
 
             total_chars = sum(len(doc.page_content) for doc in documents)
             logger.info(f"Chuẩn bị thêm {len(documents)} tài liệu với tổng {total_chars} ký tự")
             
-
             valid_docs = []
             for doc in documents:
                 if not doc.page_content or len(doc.page_content.strip()) == 0:
@@ -84,19 +82,33 @@ class ChromaManager:
                 return []
                 
             texts = [doc.page_content for doc in valid_docs]
-            metadata_list = [doc.metadata for doc in valid_docs] if not metadatas else metadatas
+            metadata_list = [doc.metadata.copy() if hasattr(doc, 'metadata') and doc.metadata else {} for doc in valid_docs]
             
-
             ids = []
             for i, doc in enumerate(valid_docs):
+
                 if hasattr(doc, 'metadata') and doc.metadata and 'id' in doc.metadata:
                     doc_id = doc.metadata['id']
-                else:
-                    doc_id = str(uuid.uuid4())
-                ids.append(doc_id)
-            
+                    metadata_list[i]['document_id'] = doc_id
 
-            logger.debug(f"Các ID mẫu: {ids[:3] if len(ids) > 3 else ids}")
+                    unique_id = f"{doc_id}_{uuid.uuid4().hex[:8]}"
+                else:
+                    unique_id = str(uuid.uuid4())
+                ids.append(unique_id)
+
+                metadata_list[i]['id'] = unique_id
+            
+            if len(ids) != len(set(ids)):
+                duplicates = set([x for x in ids if ids.count(x) > 1])
+                logger.warning(f"Phát hiện ID trùng lặp sau khi tạo: {duplicates}. Đang tạo ID mới.")
+                
+                for i, doc_id in enumerate(ids):
+                    if doc_id in duplicates:
+                        new_id = str(uuid.uuid4())
+                        ids[i] = new_id
+                        metadata_list[i]['id'] = new_id
+            
+            logger.debug(f"Một số ID mẫu: {ids[:3] if len(ids) > 3 else ids}")
             
             avg_length = sum(len(t) for t in texts) / len(texts) if texts else 0
             logger.info(f"Độ dài trung bình của text: {avg_length:.1f} ký tự")
@@ -115,29 +127,47 @@ class ChromaManager:
                 return []
                 
             logger.debug(f"Chia tài liệu có độ dài {len(text)} ký tự")
-            
-            text = text.replace('\x00', ' ') 
-            text = text.replace('. ', '.\n')  
-            chunks = self.text_splitter.create_documents([text], [metadata] if metadata else None)
+    
+            text = text.replace('\x00', ' ')  
+            text = text.replace('. ', '.\n') 
+            chunks = self.text_splitter.create_documents([text], [metadata.copy() if metadata else None])
             
             if not chunks or len(chunks) == 0:
-                logger.warning(f"Không thể chia tài liệu thành chunks")
+                logger.warning(f"Không thể chia tài liệu thành chunks với RecursiveCharacterTextSplitter")
 
                 from langchain.text_splitter import CharacterTextSplitter
                 simple_splitter = CharacterTextSplitter(
-                    chunk_size=500,
-                    chunk_overlap=0,
+                    chunk_size=1000,
+                    chunk_overlap=100,
                     separator="\n"
                 )
-                chunks = simple_splitter.create_documents([text], [metadata] if metadata else None)
+                chunks = simple_splitter.create_documents([text], [metadata.copy() if metadata else None])
+    
+            orig_doc_id = metadata.get('id', str(uuid.uuid4())) if metadata else str(uuid.uuid4())
+            
+            for i, chunk in enumerate(chunks):
+                if not chunk.metadata:
+                    chunk.metadata = {}
                 
+                chunk.metadata['document_id'] = orig_doc_id
+                chunk.metadata['id'] = f"{orig_doc_id}_chunk_{i}_{uuid.uuid4().hex[:8]}"
+                chunk.metadata['chunk_index'] = i
+                chunk.metadata['total_chunks'] = len(chunks)
+                
+                if metadata:
+                    for key, value in metadata.items():
+                        if key != 'id' and key not in chunk.metadata:
+                            chunk.metadata[key] = value
+            
             logger.info(f"Đã chia tài liệu thành {len(chunks)} chunks")
             return chunks
         except Exception as e:
             logger.error(f"Lỗi khi chia tài liệu thành chunks: {str(e)}")
 
             from langchain.schema import Document as LangchainDocument
-            return [LangchainDocument(page_content=text, metadata=metadata or {})]
+            fallback_doc = LangchainDocument(page_content=text, metadata=metadata.copy() if metadata else {})
+            fallback_doc.metadata['id'] = metadata.get('id', str(uuid.uuid4())) if metadata else str(uuid.uuid4())
+            return [fallback_doc]
         
     def similarity_search(self, query, k=5):
         try:
@@ -149,6 +179,7 @@ class ChromaManager:
             raise
         
     def hybrid_search(self, query, k=5):
+
         return self.similarity_search(query, k)
         
     def delete_collection(self, collection_name="langchain"):
@@ -167,3 +198,12 @@ class ChromaManager:
         except Exception as e:
             logger.error(f"Lỗi khi liệt kê collections: {str(e)}")
             raise
+            
+    def delete_documents(self, ids):
+        try:
+            self.vector_store.delete(ids)
+            logger.info(f"Đã xóa {len(ids)} tài liệu")
+            return True
+        except Exception as e:
+            logger.error(f"Lỗi khi xóa tài liệu: {str(e)}")
+            return False
