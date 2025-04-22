@@ -81,9 +81,10 @@ class RAGService:
     def _extract_valid_document_ids(self, docs: List[Document]) -> List[Dict[str, Any]]:
         valid_sources = []
         for doc in docs:
-
             if hasattr(doc, 'metadata') and doc.metadata:
-                doc_id = doc.metadata.get('id')
+                doc_id = doc.metadata.get('chunk_id')
+                if not doc_id:
+                    doc_id = doc.metadata.get('id')
 
                 if doc_id:
                     source_data = {
@@ -94,7 +95,7 @@ class RAGService:
                     if 'score' in doc.metadata:
                         source_data["relevance_score"] = doc.metadata.get('score')
                     valid_sources.append(source_data)
-                    
+                
         return valid_sources
     
     def _ensure_vietnamese_response(self, response: str) -> str:

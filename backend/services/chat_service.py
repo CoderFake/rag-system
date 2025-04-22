@@ -145,7 +145,7 @@ class ChatService:
                 document_id = source.get("id")
                 if not document_id:
                     continue
-                    
+
                 doc_exists = self.db_manager.execute_query(
                     "SELECT id FROM documents WHERE id = %s", 
                     (document_id,), 
@@ -159,10 +159,30 @@ class ChatService:
                         (response_id, document_id, relevance_score)
                     )
                 else:
-                    logger.warning(f"Document ID {document_id} not found in database, skipping source")
+                    if '_chunk_' in document_id:
+                        base_id = document_id.split('_chunk_')[0]
+                        logger.info(f"Document ID {document_id} không tìm thấy, thử tìm với base ID: {base_id}")
+                        
+                        doc_exists = self.db_manager.execute_query(
+                            "SELECT id FROM documents WHERE id LIKE %s", 
+                            (f"{base_id}%",), 
+                            fetch=True
+                        )
+                        
+                        if doc_exists:
+                            parent_id = doc_exists[0]['id']
+                            relevance_score = source.get("relevance_score", 0.0)
+                            self.db_manager.execute_query(
+                                "INSERT INTO response_sources (response_id, document_id, relevance_score) VALUES (%s, %s, %s)",
+                                (response_id, parent_id, relevance_score)
+                            )
+                        else:
+                            logger.warning(f"Document ID {document_id} và base ID {base_id} không tìm thấy trong database")
+                    else:
+                        logger.warning(f"Document ID {document_id} không tìm thấy trong database")
             except Exception as e:
-                logger.error(f"Error saving source {source.get('id')}: {str(e)}")
-    
+                logger.error(f"Lỗi khi lưu source {source.get('id')}: {str(e)}")
+
     def get_chat_history(self, session_id: str, limit: int = 50) -> List[Dict[str, Any]]:
         if not self.db_manager:
             return []
