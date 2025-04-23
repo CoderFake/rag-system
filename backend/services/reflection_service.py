@@ -9,7 +9,7 @@ class ReflectionService:
     def __init__(self, llm_client):
         self.llm_client = llm_client
         
-
+        # Prompt phản chiếu truy vấn tiếng Việt
         self.reflection_prompt_vi = """
         Bạn đang giúp cải thiện một truy vấn của người dùng để hệ thống tìm kiếm thông tin hoạt động tốt hơn.
         
@@ -24,7 +24,7 @@ class ReflectionService:
         Chỉ trả về truy vấn đã cải thiện, không thêm bất kỳ chú thích nào.
         """
         
-
+        # Prompt phản chiếu truy vấn tiếng Anh
         self.reflection_prompt_en = """
         You are helping to improve a user's query to make the information retrieval system work better.
         
@@ -40,30 +40,31 @@ class ReflectionService:
         """
     
     def enhance_query(self, query: str, language: str = "vi") -> str:
+        # Bỏ qua việc cải thiện nếu truy vấn quá ngắn
         if len(query.split()) <= 3:
             return query
             
         try:
+            # Chọn prompt template dựa trên ngôn ngữ
             prompt_template = self.reflection_prompt_vi if language == "vi" else self.reflection_prompt_en
+            
+            # Tạo prompt với truy vấn người dùng
             prompt = prompt_template.format(query=query)
-
-            try:
-                enhanced_query = self.llm_client.generate(
-                    prompt=prompt,
-                    temperature=0.3
-                )
-            except TypeError:
-
-                enhanced_query = self.llm_client.generate(
-                    prompt=prompt
-                )
+            
+            # Gọi LLM để cải thiện truy vấn - ĐÃ BỎ tham số temperature
+            enhanced_query = self.llm_client.generate(
+                prompt=prompt
+            )
+            
+            # Kiểm tra độ dài của truy vấn đã cải thiện
             if len(enhanced_query) > len(query) * 3:
                 logger.warning("Enhanced query too long, using original query")
                 return query
                 
             logger.info(f"Enhanced query: {enhanced_query}")
             return enhanced_query
+            
         except Exception as e:
             logger.error(f"Error in query enhancement: {str(e)}")
-
+            # Trả về truy vấn gốc nếu có lỗi
             return query

@@ -393,20 +393,25 @@ class MySQLManager:
         query = """
         (SELECT 'query' as type, q.id, q.text as content, q.created_at, NULL as query_id, q.user_id
          FROM queries q 
-         WHERE q.session_id = %s)
+         WHERE q.session_id = %s
+         ORDER BY q.created_at DESC
+         LIMIT %s)
         UNION
         (SELECT 'response' as type, r.id, r.text as content, r.created_at, r.query_id, r.user_id
          FROM responses r 
-         WHERE r.session_id = %s)
+         WHERE r.session_id = %s
+         ORDER BY r.created_at DESC
+         LIMIT %s)
         ORDER BY created_at ASC
-        LIMIT %s
         """
         
-        results = self.execute_query(query, (session_id, session_id, limit), fetch=True)
+        results = self.execute_query(query, (session_id, limit, session_id, limit), fetch=True)
         
-
         for item in results:
-            if item['type'] == 'response':
+            if isinstance(item['created_at'], datetime):
+                item['created_at'] = item['created_at'].isoformat()
+                
+            if item['type'] == 'response' and item['id']:
                 sources_query = """
                 SELECT d.id, d.title, d.category, rs.relevance_score
                 FROM response_sources rs
@@ -416,8 +421,16 @@ class MySQLManager:
                 
                 sources = self.execute_query(sources_query, (item['id'],), fetch=True)
                 item['sources'] = sources
+            else:
+                item['sources'] = []
                 
-        return results
+        unique_results = {}
+        for item in results:
+            unique_results[item['id']] = item
+            
+        sorted_results = sorted(unique_results.values(), key=lambda x: x['created_at'])
+        
+        return sorted_results
     
     def add_feedback(self, response_id: str, user_id: Optional[int], feedback_type: str, value: str) -> int:
         query = """

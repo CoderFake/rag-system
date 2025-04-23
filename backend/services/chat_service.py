@@ -2,13 +2,8 @@ import time
 import logging
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime
-
-
 from models.query import Query
 from models.response import Response
-
-
-from config.settings import Config
 
 logger = logging.getLogger(__name__)
 
@@ -20,13 +15,11 @@ class ChatService:
         self.llm_client = llm_client
         self.db_manager = db_manager
         
-        logger.info(f"ChatService khởi tạo với LLM provider: {Config.LLM_PROVIDER}")
-
     def process_query(self, query_text: str, session_id: str = None, user_id: Optional[int] = None, language: str = "vi") -> Dict[str, Any]:
         
         start_time = time.time()
+        
         try:
-
             query = Query(
                 text=query_text,
                 user_id=user_id,
@@ -35,36 +28,39 @@ class ChatService:
                 created_at=datetime.now().isoformat()
             )
             
-            try:
-                enhanced_query = self.reflection_service.enhance_query(query_text, language)
-                query.enhanced_text = enhanced_query
-            except Exception as e:
-                logger.error(f"Error enhancing query: {str(e)}")
-                enhanced_query = query_text
-                query.enhanced_text = query_text
+            enhanced_query = self.reflection_service.enhance_query(query_text, language)
+            query.enhanced_text = enhanced_query
+            
+            chat_history = []
+            if self.db_manager and session_id:
+                chat_history = self.db_manager.get_chat_history(session_id, limit=5) 
             
             route_type, route_data = self.semantic_router.route_query(
                 enhanced_query,
-                {"session_id": session_id, "language": language}
+                {
+                    "session_id": session_id, 
+                    "language": language,
+                    "chat_history": chat_history 
+                }
             )
             
             query.query_type = "rag" if route_type == "admission_query" else "chitchat"
             
             if self.db_manager:
-                try:
-                    self.db_manager.save_query(query)
-                except Exception as e:
-                    logger.error(f"Error saving query to database: {str(e)}")
+                self.db_manager.save_query(query)
             
             if route_type == "admission_query":
-
-                rag_result = self.rag_service.process_query(enhanced_query, language)
-            
+                result = self.rag_service.process_query(
+                    enhanced_query, 
+                    language, 
+                    chat_history=chat_history
+                )
+                
                 response = Response(
                     query_id=query.id,
-                    text=rag_result["response"],
+                    text=result["response"],
                     query_text=query_text,
-                    source_documents=rag_result.get("source_documents", []),
+                    source_documents=[doc.metadata for doc in result.get("source_documents", [])],
                     response_type="rag",
                     session_id=session_id,
                     user_id=user_id,
@@ -73,12 +69,39 @@ class ChatService:
                     created_at=datetime.now().isoformat()
                 )
             else:
-
                 system_prompt = f"Bạn là trợ lý AI hữu ích trả lời bằng {'tiếng Việt' if language == 'vi' else 'English'}."
-                chatbot_response = self.llm_client.generate(
-                    prompt=enhanced_query, 
-                    system_prompt=system_prompt
-                )
+                
+                try:
+                    messages = []
+                    for msg in chat_history:
+                        if msg['type'] == 'query':
+                            messages.append({"role": "user", "content": msg['content']})
+                        else:
+                            messages.append({"role": "assistant", "content": msg['content']})
+                    
+                    messages.append({"role": "user", "content": query_text})
+                    
+                    chatbot_response = self.llm_client.generate_with_history(
+                        messages=messages,
+                        system_prompt=system_prompt
+                    )
+                except (AttributeError, TypeError) as e:
+                    formatted_history = ""
+                    for msg in chat_history:
+                        if msg['type'] == 'query':
+                            formatted_history += f"Người dùng: {msg['content']}\n"
+                        else:
+                            formatted_history += f"AI: {msg['content']}\n"
+                    
+                    if formatted_history:
+                        full_prompt = f"Lịch sử trò chuyện:\n{formatted_history}\n\nNgười dùng: {query_text}\n\nAI:"
+                    else:
+                        full_prompt = query_text
+                    
+                    chatbot_response = self.llm_client.generate(
+                        prompt=full_prompt,
+                        system_prompt=system_prompt
+                    )
                 
                 response = Response(
                     query_id=query.id,
@@ -93,12 +116,8 @@ class ChatService:
                     created_at=datetime.now().isoformat()
                 )
             
-
             if self.db_manager:
-                try:
-                    self._save_response_safely(response)
-                except Exception as e:
-                    logger.error(f"Error saving response to database: {str(e)}")
+                self.db_manager.save_response(response)
             
             return {
                 "response": response.text,
@@ -121,77 +140,11 @@ class ChatService:
                 "processing_time": processing_time
             }
     
-    def _save_response_safely(self, response: Response) -> bool:
-        try:
-            source_documents = response.source_documents
-            response.source_documents = [] 
-            
-            response_id = self.db_manager.save_response(response)
-            
-            if source_documents and len(source_documents) > 0:
-                self._save_sources_safely(response.id, source_documents)
-                
-            return True
-        except Exception as e:
-            logger.error(f"Error in _save_response_safely: {str(e)}")
-            return False
-    
-    def _save_sources_safely(self, response_id: str, sources: List[Dict[str, Any]]) -> None:
-        if not self.db_manager:
-            return
-            
-        for source in sources:
-            try:
-                document_id = source.get("id")
-                if not document_id:
-                    continue
-
-                doc_exists = self.db_manager.execute_query(
-                    "SELECT id FROM documents WHERE id = %s", 
-                    (document_id,), 
-                    fetch=True
-                )
-
-                if doc_exists:
-                    relevance_score = source.get("relevance_score", 0.0)
-                    self.db_manager.execute_query(
-                        "INSERT INTO response_sources (response_id, document_id, relevance_score) VALUES (%s, %s, %s)",
-                        (response_id, document_id, relevance_score)
-                    )
-                else:
-                    if '_chunk_' in document_id:
-                        base_id = document_id.split('_chunk_')[0]
-                        logger.info(f"Document ID {document_id} không tìm thấy, thử tìm với base ID: {base_id}")
-                        
-                        doc_exists = self.db_manager.execute_query(
-                            "SELECT id FROM documents WHERE id LIKE %s", 
-                            (f"{base_id}%",), 
-                            fetch=True
-                        )
-                        
-                        if doc_exists:
-                            parent_id = doc_exists[0]['id']
-                            relevance_score = source.get("relevance_score", 0.0)
-                            self.db_manager.execute_query(
-                                "INSERT INTO response_sources (response_id, document_id, relevance_score) VALUES (%s, %s, %s)",
-                                (response_id, parent_id, relevance_score)
-                            )
-                        else:
-                            logger.warning(f"Document ID {document_id} và base ID {base_id} không tìm thấy trong database")
-                    else:
-                        logger.warning(f"Document ID {document_id} không tìm thấy trong database")
-            except Exception as e:
-                logger.error(f"Lỗi khi lưu source {source.get('id')}: {str(e)}")
-
     def get_chat_history(self, session_id: str, limit: int = 50) -> List[Dict[str, Any]]:
         if not self.db_manager:
             return []
             
-        try:
-            return self.db_manager.get_chat_history(session_id, limit)
-        except Exception as e:
-            logger.error(f"Error getting chat history: {str(e)}")
-            return []
+        return self.db_manager.get_chat_history(session_id, limit)
     
     def add_feedback(self, response_id: str, user_id: Optional[int], feedback_type: str, value: str) -> bool:
         if not self.db_manager:

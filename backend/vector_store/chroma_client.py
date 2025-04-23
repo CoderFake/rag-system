@@ -5,7 +5,7 @@ import chromadb
 import logging
 import os
 import time
-import uuid
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -45,14 +45,12 @@ class ChromaManager:
                     embedding_function=self.embeddings,
                     client=self.client
                 )
-
+            
             self.text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=1000,              
-                chunk_overlap=200,         
-                length_function=len,                
-                separators=["\n\n", "\n", ". ", " ", ""], 
-                keep_separator=True,             
-                is_separator_regex=False       
+                chunk_size=512,
+                chunk_overlap=50,
+                length_function=len,
+                is_separator_regex=False
             )
             
             logger.info(f"ChromaManager khởi tạo thành công với mô hình: {embedding_model}")
@@ -63,111 +61,103 @@ class ChromaManager:
         
     def add_documents(self, documents, metadatas=None):
         try:
-            if not documents or len(documents) == 0:
-                logger.warning("Không có tài liệu nào để thêm vào ChromaDB")
+            if not documents:
+                logger.warning("Danh sách tài liệu trống, không có gì để thêm vào ChromaDB")
                 return []
-
-            total_chars = sum(len(doc.page_content) for doc in documents)
-            logger.info(f"Chuẩn bị thêm {len(documents)} tài liệu với tổng {total_chars} ký tự")
-            
+                
             valid_docs = []
-            for doc in documents:
-                if not doc.page_content or len(doc.page_content.strip()) == 0:
-                    logger.warning("Bỏ qua tài liệu trống")
-                    continue
-                valid_docs.append(doc)
-                
-            if len(valid_docs) == 0:
-                logger.warning("Không có tài liệu hợp lệ nào để thêm vào ChromaDB")
+            valid_metadatas = []
+            
+            for i, doc in enumerate(documents):
+                if hasattr(doc, 'page_content') and doc.page_content and doc.page_content.strip():
+                    valid_docs.append(doc)
+                    if metadatas and i < len(metadatas):
+                        valid_metadatas.append(metadatas[i])
+                    elif hasattr(doc, 'metadata'):
+                        valid_metadatas.append(doc.metadata)
+                    else:
+                        valid_metadatas.append({})
+            
+            if not valid_docs:
+                logger.warning("Sau khi lọc, không còn tài liệu hợp lệ để thêm vào ChromaDB")
                 return []
-                
+            
             texts = [doc.page_content for doc in valid_docs]
-            metadata_list = [doc.metadata.copy() if hasattr(doc, 'metadata') and doc.metadata else {} for doc in valid_docs]
+            metadata_list = valid_metadatas if valid_metadatas else [doc.metadata for doc in valid_docs]
             
-            ids = []
-            for i, doc in enumerate(valid_docs):
-
-                if hasattr(doc, 'metadata') and doc.metadata and 'id' in doc.metadata:
-                    doc_id = doc.metadata['id']
-                    metadata_list[i]['document_id'] = doc_id
-
-                    unique_id = f"{doc_id}_{uuid.uuid4().hex[:8]}"
-                else:
-                    unique_id = str(uuid.uuid4())
-                ids.append(unique_id)
-
-                metadata_list[i]['id'] = unique_id
-            
-            if len(ids) != len(set(ids)):
-                duplicates = set([x for x in ids if ids.count(x) > 1])
-                logger.warning(f"Phát hiện ID trùng lặp sau khi tạo: {duplicates}. Đang tạo ID mới.")
+            for i, metadata in enumerate(metadata_list):
+                if "id" not in metadata:
+                    metadata["id"] = f"doc_{int(time.time())}_{i}"
                 
-                for i, doc_id in enumerate(ids):
-                    if doc_id in duplicates:
-                        new_id = str(uuid.uuid4())
-                        ids[i] = new_id
-                        metadata_list[i]['id'] = new_id
+                for key in list(metadata.keys()): 
+                    if isinstance(metadata[key], (list, dict, tuple, set)):
+                        try:
+                            metadata[key + "_str"] = json.dumps(metadata[key])
+                        except Exception:
+                            pass
+                        del metadata[key]  
             
-            logger.debug(f"Một số ID mẫu: {ids[:3] if len(ids) > 3 else ids}")
-            
-            avg_length = sum(len(t) for t in texts) / len(texts) if texts else 0
-            logger.info(f"Độ dài trung bình của text: {avg_length:.1f} ký tự")
-            
-            result = self.vector_store.add_texts(texts=texts, metadatas=metadata_list, ids=ids)
+            result = self.vector_store.add_texts(texts=texts, metadatas=metadata_list)
             logger.info(f"Đã thêm {len(texts)} tài liệu vào ChromaDB")
             return result
+            
         except Exception as e:
             logger.error(f"Lỗi khi thêm tài liệu: {str(e)}")
             raise
         
     def chunk_document(self, text, metadata=None):
         try:
-            if not text or len(text.strip()) == 0:
-                logger.warning("Cố gắng chia tài liệu trống")
+            if not text or not text.strip():
+                logger.warning("Văn bản trống, không thể tách thành chunks")
                 return []
                 
-            logger.debug(f"Chia tài liệu có độ dài {len(text)} ký tự")
-    
-            text = text.replace('\x00', ' ')  
-            text = text.replace('. ', '.\n') 
-            chunks = self.text_splitter.create_documents([text], [metadata.copy() if metadata else None])
+            if metadata is None:
+                metadata = {}
+                
+            metadata_copy = metadata.copy() if metadata else {}
             
-            if not chunks or len(chunks) == 0:
-                logger.warning(f"Không thể chia tài liệu thành chunks với RecursiveCharacterTextSplitter")
-
-                from langchain.text_splitter import CharacterTextSplitter
-                simple_splitter = CharacterTextSplitter(
-                    chunk_size=1000,
-                    chunk_overlap=100,
-                    separator="\n"
-                )
-                chunks = simple_splitter.create_documents([text], [metadata.copy() if metadata else None])
-    
-            orig_doc_id = metadata.get('id', str(uuid.uuid4())) if metadata else str(uuid.uuid4())
+            if "id" not in metadata_copy:
+                metadata_copy["id"] = f"doc_{int(time.time())}"
             
-            for i, chunk in enumerate(chunks):
-                if not chunk.metadata:
+            safe_metadata = {}
+            for key, value in metadata_copy.items():
+                if isinstance(value, (str, int, float, bool)) or value is None:
+                    safe_metadata[key] = value
+                elif isinstance(value, (list, dict, tuple, set)):
+                    try:
+                        safe_metadata[key + "_str"] = json.dumps(value)
+                    except Exception:
+                        pass
+            
+            chunks = self.text_splitter.create_documents([text], [safe_metadata])
+            
+            valid_chunks = []
+            for chunk in chunks:
+                if chunk.page_content and chunk.page_content.strip():
+                    valid_chunks.append(chunk)
+            
+            if not valid_chunks:
+                logger.warning("Không có chunk hợp lệ sau khi tách văn bản")
+                return []
+            
+            document_id = safe_metadata.get("id", f"doc_{int(time.time())}")
+            for i, chunk in enumerate(valid_chunks):
+                if not hasattr(chunk, 'metadata') or not chunk.metadata:
                     chunk.metadata = {}
                 
-                chunk.metadata['document_id'] = orig_doc_id
-                chunk.metadata['id'] = f"{orig_doc_id}_chunk_{i}_{uuid.uuid4().hex[:8]}"
-                chunk.metadata['chunk_index'] = i
-                chunk.metadata['total_chunks'] = len(chunks)
-                
-                if metadata:
-                    for key, value in metadata.items():
-                        if key != 'id' and key not in chunk.metadata:
-                            chunk.metadata[key] = value
+                if "id" not in chunk.metadata:
+                    chunk.metadata["id"] = f"{document_id}_chunk_{i}"
+                    
+                if "document_id" not in chunk.metadata:
+                    chunk.metadata["document_id"] = document_id
+                    
+                chunk.metadata["chunk_index"] = i
             
-            logger.info(f"Đã chia tài liệu thành {len(chunks)} chunks")
-            return chunks
+            logger.debug(f"Đã chia tài liệu thành {len(valid_chunks)} chunks hợp lệ")
+            return valid_chunks
         except Exception as e:
             logger.error(f"Lỗi khi chia tài liệu thành chunks: {str(e)}")
-
-            from langchain.schema import Document as LangchainDocument
-            fallback_doc = LangchainDocument(page_content=text, metadata=metadata.copy() if metadata else {})
-            fallback_doc.metadata['id'] = metadata.get('id', str(uuid.uuid4())) if metadata else str(uuid.uuid4())
-            return [fallback_doc]
+            raise
         
     def similarity_search(self, query, k=5):
         try:
@@ -179,7 +169,6 @@ class ChromaManager:
             raise
         
     def hybrid_search(self, query, k=5):
-
         return self.similarity_search(query, k)
         
     def delete_collection(self, collection_name="langchain"):
@@ -199,11 +188,41 @@ class ChromaManager:
             logger.error(f"Lỗi khi liệt kê collections: {str(e)}")
             raise
             
-    def delete_documents(self, ids):
+    def delete_by_document_id(self, document_id):
         try:
-            self.vector_store.delete(ids)
-            logger.info(f"Đã xóa {len(ids)} tài liệu")
-            return True
+            collection = self.client.get_collection(name="langchain")
+            
+            try:
+                query_results = collection.query(
+                    query_texts=[""], 
+                    where={"document_id": document_id},
+                    include=["documents", "metadatas", "embeddings"]
+                )
+                
+                if query_results and query_results.get("ids") and query_results["ids"][0]:
+                    chunk_ids = query_results["ids"][0]
+                    if chunk_ids:
+                        collection.delete(ids=chunk_ids)
+                        logger.info(f"Đã xóa {len(chunk_ids)} chunks thuộc tài liệu {document_id}")
+                        return True
+            except Exception as e:
+                logger.warning(f"Lỗi khi truy vấn collections: {str(e)}")
+                
+            all_metadatas = collection.get()["metadatas"]
+            all_ids = collection.get()["ids"]
+            
+            chunk_ids = []
+            for i, metadata in enumerate(all_metadatas):
+                if metadata.get("document_id") == document_id:
+                    chunk_ids.append(all_ids[i])
+            
+            if chunk_ids:
+                collection.delete(ids=chunk_ids)
+                logger.info(f"Đã xóa {len(chunk_ids)} chunks thuộc tài liệu {document_id}")
+                return True
+                    
+            logger.warning(f"Không tìm thấy chunks nào cho tài liệu {document_id}")
+            return False
         except Exception as e:
-            logger.error(f"Lỗi khi xóa tài liệu: {str(e)}")
+            logger.error(f"Lỗi khi xóa tài liệu từ vector store: {str(e)}")
             return False

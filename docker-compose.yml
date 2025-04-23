@@ -9,19 +9,20 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_USER: ${MYSQL_USER:-raguser}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
       - mysql_data:/var/lib/mysql
       - ./mysql/init:/docker-entrypoint-initdb.d
     ports:
       - "3386:3306"
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-authentication-plugin=mysql_native_password
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "db", "-u", "${MYSQL_USER}", "-p${MYSQL_PASSWORD}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
       
   # Database Initialization
   db-init:
@@ -32,11 +33,11 @@ services:
     volumes:
       - ./mysql/init:/scripts
     environment:
-      - MYSQL_HOST=db
-      - MYSQL_USER=${MYSQL_USER:-raguser}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
-      - MYSQL_DATABASE=${MYSQL_DATABASE}
-    entrypoint: ["/bin/bash", "/scripts/init-db.sh"]
+      MYSQL_HOST: db
+      MYSQL_USER: ${MYSQL_USER:-raguser}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    command: ["/bin/bash", "/scripts/init-db.sh"]
     restart: on-failure
 
   # Backend Flask API
@@ -50,22 +51,19 @@ services:
       db-init:
         condition: service_completed_successfully
     environment:
-      - MYSQL_HOST=${MYSQL_HOST}
-      - MYSQL_PORT=${MYSQL_PORT}
-      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_HOST=db
+      - MYSQL_PORT=3306
+      - MYSQL_USER=${MYSQL_USER:-raguser}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - MYSQL_DATABASE=${MYSQL_DATABASE}
       - FLASK_ENV=${FLASK_ENV}
       - SECRET_KEY=${SECRET_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL}
-      - OLLAMA_MODEL_NAME=${OLLAMA_MODEL_NAME}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - JWT_ACCESS_TOKEN_EXPIRES=${JWT_ACCESS_TOKEN_EXPIRES}
       - JWT_REFRESH_TOKEN_EXPIRES=${JWT_REFRESH_TOKEN_EXPIRES}
       - CHROMA_DB_PATH=${CHROMA_DB_PATH}
       - UPLOAD_FOLDER=${UPLOAD_FOLDER}
-      - MAX_CONTENT_LENGTH=104857600 #100MB
     volumes:
       - ./backend:/app
       - chroma_data:/app/chroma_db
@@ -89,6 +87,7 @@ services:
       - VITE_API_URL=http://backend:5000/api
       - VITE_DEFAULT_LANGUAGE=vi
 
+  # Ollama
   ollama:
     image: ollama/ollama:latest
     container_name: rag-ollama
@@ -97,16 +96,12 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    command: serve
 
 volumes:
   mysql_data:
   chroma_data:
   uploads_data:
-  ollama_data: 
+  ollama_data:
