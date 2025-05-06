@@ -24,7 +24,7 @@ mysql -h"$MYSQL_HOST" -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" <<-E
 
     -- Tạo bảng documents
     CREATE TABLE IF NOT EXISTS \`documents\` (
-        \`id\` VARCHAR(36) PRIMARY KEY,
+        \`id\` VARCHAR(255) PRIMARY KEY,
         \`title\` VARCHAR(255) NOT NULL,
         \`file_path\` VARCHAR(255),
         \`file_type\` VARCHAR(50),
@@ -38,7 +38,7 @@ mysql -h"$MYSQL_HOST" -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" <<-E
     -- Tạo bảng document_tags
     CREATE TABLE IF NOT EXISTS \`document_tags\` (
         \`id\` INT AUTO_INCREMENT PRIMARY KEY,
-        \`document_id\` VARCHAR(36),
+        \`document_id\` VARCHAR(255),
         \`tag\` VARCHAR(100),
         FOREIGN KEY (\`document_id\`) REFERENCES \`documents\`(\`id\`) ON DELETE CASCADE,
         UNIQUE(\`document_id\`, \`tag\`)
@@ -77,7 +77,7 @@ mysql -h"$MYSQL_HOST" -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" <<-E
     CREATE TABLE IF NOT EXISTS \`response_sources\` (
         \`id\` INT AUTO_INCREMENT PRIMARY KEY,
         \`response_id\` VARCHAR(36) NOT NULL,
-        \`document_id\` VARCHAR(36) NOT NULL,
+        \`document_id\` VARCHAR(255) NOT NULL,
         \`relevance_score\` FLOAT,
         FOREIGN KEY (\`response_id\`) REFERENCES \`responses\`(\`id\`) ON DELETE CASCADE,
         FOREIGN KEY (\`document_id\`) REFERENCES \`documents\`(\`id\`) ON DELETE CASCADE

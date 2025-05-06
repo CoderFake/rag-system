@@ -1,3 +1,5 @@
+# File: backend/services/reflection_service.py
+
 import logging
 from typing import Dict, Any
 
@@ -9,62 +11,60 @@ class ReflectionService:
     def __init__(self, llm_client):
         self.llm_client = llm_client
         
-        # Prompt phản chiếu truy vấn tiếng Việt
         self.reflection_prompt_vi = """
         Bạn đang giúp cải thiện một truy vấn của người dùng để hệ thống tìm kiếm thông tin hoạt động tốt hơn.
         
         Truy vấn gốc của người dùng là: "{query}"
         
-        Hãy phân tích truy vấn và:
-        1. Xác định các khái niệm chính
-        2. Xác định mục đích chính của truy vấn
-        3. Xác định bất kỳ điểm mơ hồ hoặc không rõ ràng nào
+        QUAN TRỌNG: KHÔNG THAY ĐỔI Ý NGHĨA BAN ĐẦU của câu hỏi. 
+        KHÔNG THÊM CÁC THÔNG TIN/CHỦ ĐỀ MỚI mà người dùng không hỏi.
+        CHỈ mở rộng câu hỏi bằng cách thêm từ khóa liên quan trực tiếp.
         
-        Sau đó, hãy viết lại truy vấn với các từ khóa phong phú hơn, cụ thể hơn và hoàn chỉnh hơn.
+        Nếu câu hỏi đã rõ ràng và cụ thể, HÃY GIỮ NGUYÊN.
+        
         Chỉ trả về truy vấn đã cải thiện, không thêm bất kỳ chú thích nào.
         """
         
-        # Prompt phản chiếu truy vấn tiếng Anh
         self.reflection_prompt_en = """
         You are helping to improve a user's query to make the information retrieval system work better.
         
         The original user query is: "{query}"
         
-        Please analyze the query and:
-        1. Identify the main concepts
-        2. Identify the main purpose of the query
-        3. Identify any ambiguities or unclear points
+        IMPORTANT: DO NOT CHANGE THE ORIGINAL MEANING of the question.
+        DO NOT ADD NEW INFORMATION/TOPICS that the user didn't ask about.
+        ONLY expand the query by adding directly relevant keywords.
         
-        Then, rewrite the query with richer, more specific and complete keywords.
+        If the question is already clear and specific, LEAVE IT AS IS.
+        
         Only return the improved query, without any commentary.
         """
     
     def enhance_query(self, query: str, language: str = "vi") -> str:
-        # Bỏ qua việc cải thiện nếu truy vấn quá ngắn
-        if len(query.split()) <= 3:
+        words = query.split()
+        if len(words) <= 10 and any(w in query.lower() for w in ['là ai', 'là gì', 'who is', 'what is']):
+            logger.info(f"Truy vấn đã đủ rõ ràng, giữ nguyên: {query}")
+            return query
+        
+        if len(words) <= 3:
             return query
             
         try:
-            # Chọn prompt template dựa trên ngôn ngữ
             prompt_template = self.reflection_prompt_vi if language == "vi" else self.reflection_prompt_en
             
-            # Tạo prompt với truy vấn người dùng
             prompt = prompt_template.format(query=query)
             
-            # Gọi LLM để cải thiện truy vấn - ĐÃ BỎ tham số temperature
             enhanced_query = self.llm_client.generate(
-                prompt=prompt
+                prompt=prompt,
+                temperature=0.1  
             )
             
-            # Kiểm tra độ dài của truy vấn đã cải thiện
-            if len(enhanced_query) > len(query) * 3:
-                logger.warning("Enhanced query too long, using original query")
+            if len(enhanced_query) > len(query) * 2:
+                logger.warning(f"Enhanced query quá dài, sử dụng truy vấn gốc: {query}")
                 return query
-                
-            logger.info(f"Enhanced query: {enhanced_query}")
+            
+            logger.info(f"Truy vấn gốc: '{query}' -> Truy vấn đã cải thiện: '{enhanced_query}'")
             return enhanced_query
             
         except Exception as e:
-            logger.error(f"Error in query enhancement: {str(e)}")
-            # Trả về truy vấn gốc nếu có lỗi
+            logger.error(f"Lỗi khi cải thiện truy vấn: {str(e)}")
             return query

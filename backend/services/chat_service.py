@@ -14,9 +14,9 @@ class ChatService:
         self.rag_service = rag_service
         self.llm_client = llm_client
         self.db_manager = db_manager
-        
+
     def process_query(self, query_text: str, session_id: str = None, user_id: Optional[int] = None, language: str = "vi") -> Dict[str, Any]:
-        
+    
         start_time = time.time()
         
         try:
@@ -47,7 +47,8 @@ class ChatService:
             query.query_type = "rag" if route_type == "admission_query" else "chitchat"
             
             if self.db_manager:
-                self.db_manager.save_query(query)
+                query_id = self.db_manager.save_query(query)
+                query.id = query_id
             
             if route_type == "admission_query":
                 result = self.rag_service.process_query(
@@ -56,11 +57,45 @@ class ChatService:
                     chat_history=chat_history
                 )
                 
+                valid_sources = []
+                if self.db_manager and result.get("source_documents"):
+                    for doc in result.get("source_documents", []):
+                        doc_id = None
+                        if hasattr(doc, 'metadata'):
+                            doc_id = doc.metadata.get('document_id') or doc.metadata.get('id')
+                        elif isinstance(doc, dict):
+                            doc_id = doc.get('document_id') or doc.get('id')
+                        
+                        if doc_id:
+                            try:
+                                document = self.db_manager.get_document(doc_id)
+                                if document:
+                                    if hasattr(doc, 'metadata'):
+                                        valid_sources.append({
+                                            'id': doc_id,
+                                            'title': doc.metadata.get('title', 'Unknown'),
+                                            'category': doc.metadata.get('category', 'general'),
+                                            'relevance_score': 0.9
+                                        })
+                                    elif isinstance(doc, dict):
+                                        valid_sources.append({
+                                            'id': doc_id,
+                                            'title': doc.get('title', 'Unknown'),
+                                            'category': doc.get('category', 'general'),
+                                            'relevance_score': doc.get('relevance_score', 0.9)
+                                        })
+                                else:
+                                    logger.warning(f"Tài liệu với ID {doc_id} không tồn tại trong cơ sở dữ liệu")
+                            except Exception as e:
+                                logger.error(f"Lỗi khi kiểm tra document_id {doc_id}: {str(e)}")
+                        else:
+                            logger.warning(f"Không thể trích xuất document_id từ source_document")
+                
                 response = Response(
                     query_id=query.id,
                     text=result["response"],
                     query_text=query_text,
-                    source_documents=[doc.metadata for doc in result.get("source_documents", [])],
+                    source_documents=valid_sources,  
                     response_type="rag",
                     session_id=session_id,
                     user_id=user_id,
@@ -68,6 +103,7 @@ class ChatService:
                     processing_time=time.time() - start_time,
                     created_at=datetime.now().isoformat()
                 )
+                
             else:
                 system_prompt = f"Bạn là trợ lý AI hữu ích trả lời bằng {'tiếng Việt' if language == 'vi' else 'English'}."
                 
@@ -117,7 +153,10 @@ class ChatService:
                 )
             
             if self.db_manager:
-                self.db_manager.save_response(response)
+                try:
+                    self.db_manager.save_response(response)
+                except Exception as db_error:
+                    logger.error(f"Lỗi khi lưu response vào database: {str(db_error)}")
             
             return {
                 "response": response.text,
@@ -126,7 +165,7 @@ class ChatService:
                 "query_id": query.id,
                 "response_id": response.id
             }
-            
+                
         except Exception as e:
             logger.error(f"Error processing query: {str(e)}")
             processing_time = time.time() - start_time

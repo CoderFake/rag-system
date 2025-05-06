@@ -171,7 +171,6 @@ class MySQLManager:
         rows_affected = self.execute_query(query, (user_id,))
         return rows_affected > 0
         
-
     def save_document(self, document) -> str:
         from models.document import Document
         
@@ -300,7 +299,6 @@ class MySQLManager:
         rows_affected = self.execute_query(query, (document_id,))
         return rows_affected > 0
     
-
     def save_query(self, query) -> str:
         from models.query import Query
         
@@ -335,14 +333,13 @@ class MySQLManager:
         )
         
         return query.id
-    
+
     def save_response(self, response) -> str:
         from models.response import Response
         
         if not isinstance(response, Response):
             raise TypeError("response phải là một đối tượng Response")
             
-
         insert_query = """
         INSERT INTO responses 
         (id, query_id, text, query_text, response_type, session_id, user_id, language, processing_time, created_at)
@@ -372,8 +369,10 @@ class MySQLManager:
             )
         )
         
-
         if response.source_documents:
+            success_sources = 0
+            failed_sources = 0
+            
             source_query = """
             INSERT INTO response_sources 
             (response_id, document_id, relevance_score)
@@ -381,11 +380,45 @@ class MySQLManager:
             """
             
             for source in response.source_documents:
-                doc_id = source.get('id')
-                relevance = source.get('relevance_score', 0.0)
-                
-                if doc_id:
-                    self.execute_query(source_query, (response.id, doc_id, relevance))
+                try:
+                    doc_id = None
+                    relevance = 0.0
+                    
+                    if isinstance(source, dict):
+                        doc_id = source.get('id') or source.get('document_id')
+                        relevance = source.get('relevance_score', 0.0)
+                    elif hasattr(source, 'metadata'):
+                        metadata = source.metadata
+                        doc_id = metadata.get('id') or metadata.get('document_id')
+                        relevance = metadata.get('relevance_score', 0.0)
+                    
+                    if not doc_id:
+                        logging.warning(f"Bỏ qua source không có document_id")
+                        failed_sources += 1
+                        continue
+                    
+                    doc_exists = self.execute_query(
+                        "SELECT id FROM documents WHERE id = %s", 
+                        (doc_id,), 
+                        fetch=True
+                    )
+                    
+                    if not doc_exists:
+                        logging.warning(f"Document ID {doc_id} không tồn tại trong database, bỏ qua")
+                        failed_sources += 1
+                        continue
+                    
+                    self.execute_query(
+                        source_query, 
+                        (response.id, doc_id, relevance)
+                    )
+                    success_sources += 1
+                    
+                except Exception as e:
+                    logging.error(f"Lỗi khi lưu source {source}: {str(e)}")
+                    failed_sources += 1
+            
+            logging.info(f"Đã lưu {success_sources} sources, bỏ qua {failed_sources} sources")
         
         return response.id
     
